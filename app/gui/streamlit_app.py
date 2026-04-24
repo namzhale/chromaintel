@@ -1,14 +1,20 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
 from app.adapters.pubchem import PubChemClient
 from app.models.baseline import train_baseline_models
+from app.models.training import train_forward_models
 from app.schemas.method import CompoundInput, GradientStep, MethodInput, MSSettingsInput
+from app.services.dataset_assembly import assemble_master_dataset, normalize_source_frame
 from app.services.data_loader import load_dataset_browser_records, load_training_records
 from app.services.descriptors import DescriptorCalculator, InvalidStructureError
+from app.services.feature_engineering import build_model_matrix
+from app.services.internal_validation import validate_internal_lab_frame, write_internal_templates
 from app.services.predictor import ForwardPredictor
 from app.services.recommendation import RecommendationEngine
 
@@ -18,6 +24,13 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+MASTER_DATASET_PATH = PROCESSED_DIR / "master_dataset.csv"
+MODEL_MATRIX_PATH = PROCESSED_DIR / "model_matrix.csv"
+REPORTS_DIR = PROJECT_ROOT / "reports"
 
 
 def default_method() -> MethodInput:
@@ -113,22 +126,86 @@ def compound_form(prefix: str = "compound") -> CompoundInput:
 
 def dashboard() -> None:
     st.title("AI LC-MS/MS Method Development")
-    records = load_dataset_browser_records()
+    records = _load_master_or_mock()
     cols = st.columns(4)
     cols[0].metric("Records", len(records))
     cols[1].metric("Compounds", records["compound_name"].nunique())
-    cols[2].metric("Sources", records["dataset_source"].nunique())
-    cols[3].metric("Median RT", f"{records['retention_time_min'].median():.2f} min")
+    source_col = "source_dataset" if "source_dataset" in records.columns else "dataset_source"
+    rt_col = "rt_min" if "rt_min" in records.columns else "retention_time_min"
+    quality_col = "quality_score" if "quality_score" in records.columns else None
+    cols[2].metric("Sources", records[source_col].nunique())
+    cols[3].metric("Median RT", f"{records[rt_col].median():.2f} min")
     st.plotly_chart(
         px.scatter(
             records,
-            x="retention_time_min",
-            y="quality_score",
-            color="dataset_source",
-            hover_data=["compound_name", "column", "matrix"],
+            x=rt_col,
+            y=quality_col or rt_col,
+            color=source_col,
+            hover_data=[col for col in ["compound_name", "column_name", "column", "matrix"] if col in records.columns],
         ),
         use_container_width=True,
     )
+
+
+def dataset_assembly_page() -> None:
+    st.title("Dataset Assembly")
+    st.caption("Canonical source merge for METLIN SMRT, RepoRT, PubChem/ChEMBL enrichment, and internal lab templates.")
+    if st.button("Build from mock source", type="primary"):
+        raw = pd.read_csv(PROJECT_ROOT / "data" / "mock_training_records.csv")
+        normalized = normalize_source_frame(raw, "mock_training_records")
+        master = assemble_master_dataset([normalized])
+        matrix = build_model_matrix(master)
+        PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+        master.to_csv(MASTER_DATASET_PATH, index=False)
+        matrix.to_csv(MODEL_MATRIX_PATH, index=False)
+        outputs = write_internal_templates(PROJECT_ROOT / "data" / "templates")
+        st.success(f"Built {len(master)} master rows and {len(matrix)} model rows.")
+        st.json(outputs)
+
+    if MASTER_DATASET_PATH.exists():
+        master = pd.read_csv(MASTER_DATASET_PATH)
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Master rows", len(master))
+        c2.metric("Compounds", master["compound_name"].nunique())
+        c3.metric("Sources", master["source_dataset"].nunique())
+        st.subheader("Source distribution")
+        st.plotly_chart(px.histogram(master, x="source_dataset"), use_container_width=True)
+        st.subheader("Missingness")
+        missing = master.isna().mean().sort_values(ascending=False).reset_index()
+        missing.columns = ["field", "missing_fraction"]
+        st.dataframe(missing, use_container_width=True, hide_index=True)
+        st.subheader("Example rows")
+        st.dataframe(master.head(25), use_container_width=True, hide_index=True)
+    else:
+        st.info("No processed master dataset yet. Build it from mock source or run scripts/assemble_dataset.py.")
+
+
+def training_page() -> None:
+    st.title("Training")
+    if not MODEL_MATRIX_PATH.exists():
+        st.warning("No model matrix found. Build the dataset first.")
+        return
+    matrix = pd.read_csv(MODEL_MATRIX_PATH)
+    st.caption(f"Model matrix: {MODEL_MATRIX_PATH}")
+    st.metric("Rows", len(matrix))
+    st.metric("Columns", len(matrix.columns))
+    if st.button("Train forward models", type="primary"):
+        summary = train_forward_models(matrix)
+        st.success("Training complete")
+        st.json(summary.__dict__)
+
+    report_path = REPORTS_DIR / "model_training_summary.md"
+    if report_path.exists():
+        st.subheader("Training report")
+        st.markdown(report_path.read_text(encoding="utf-8"))
+    importance_path = REPORTS_DIR / "feature_importance.csv"
+    if importance_path.exists():
+        st.subheader("Feature importance")
+        importance = pd.read_csv(importance_path).head(20)
+        st.plotly_chart(
+            px.bar(importance, x="importance_mean", y="feature", orientation="h"),
+            use_container_width=True,
+        )
 
 
 def compound_lookup() -> None:
@@ -171,6 +248,10 @@ def forward_prediction() -> None:
         cols[0].metric("Predicted RT", f"{result['predicted_rt_min']:.2f} min")
         cols[1].metric("Quality score", f"{result['quality_score']:.2f}")
         cols[2].metric("Confidence", f"{result['confidence']:.2f}")
+        if result.get("uncertainty_rt_min"):
+            st.caption(f"RT uncertainty proxy: +/- {result['uncertainty_rt_min']:.2f} min")
+        if result.get("out_of_domain"):
+            st.warning("This condition set is outside the current demo model domain.")
         st.write(result["explanation"])
         risk_frame = pd.DataFrame(
             [{"risk": key, "value": value} for key, value in result["risks"].items()]
@@ -215,26 +296,30 @@ def method_recommendation() -> None:
                 c2.metric("Quality", f"{rec.predicted_quality_score:.2f}")
                 c3.metric("Runtime", f"{rec.estimated_runtime_min:.1f} min")
                 c4.metric("Confidence", f"{rec.confidence:.2f}")
-                st.write(rec.explanation)
+                st.write(f"Score: {rec.score:.3f}. {rec.explanation}")
 
 
 def dataset_browser() -> None:
     st.title("Dataset Browser")
-    records = load_dataset_browser_records()
+    records = _load_master_or_mock()
+    compound_col = "compound_name"
+    column_col = "column_name" if "column_name" in records.columns else "column"
+    source_col = "source_dataset" if "source_dataset" in records.columns else "dataset_source"
+    ion_col = "ion_mode" if "ion_mode" in records.columns else "ionization_mode"
     col_a, col_b, col_c, col_d = st.columns(4)
-    compound = col_a.multiselect("Compound", sorted(records["compound_name"].unique()))
-    column = col_b.multiselect("Column", sorted(records["column"].unique()))
-    matrix = col_c.multiselect("Matrix", sorted(records["matrix"].unique()))
-    ion = col_d.multiselect("Ionization", sorted(records["ionization_mode"].unique()))
+    compound = col_a.multiselect("Compound", sorted(records[compound_col].dropna().unique()))
+    column = col_b.multiselect("Column", sorted(records[column_col].dropna().unique()))
+    matrix = col_c.multiselect("Matrix", sorted(records["matrix"].dropna().unique()))
+    ion = col_d.multiselect("Ionization", sorted(records[ion_col].dropna().unique()))
     filtered = records.copy()
     if compound:
-        filtered = filtered[filtered["compound_name"].isin(compound)]
+        filtered = filtered[filtered[compound_col].isin(compound)]
     if column:
-        filtered = filtered[filtered["column"].isin(column)]
+        filtered = filtered[filtered[column_col].isin(column)]
     if matrix:
         filtered = filtered[filtered["matrix"].isin(matrix)]
     if ion:
-        filtered = filtered[filtered["ionization_mode"].isin(ion)]
+        filtered = filtered[filtered[ion_col].isin(ion)]
     st.dataframe(filtered, use_container_width=True, hide_index=True)
 
 
@@ -261,15 +346,31 @@ def admin_import() -> None:
     if uploaded:
         frame = pd.read_csv(uploaded)
         st.dataframe(frame.head(50), use_container_width=True)
+        result = validate_internal_lab_frame(frame)
+        if result.is_valid:
+            st.success("Import validation passed.")
+        else:
+            st.error("Import validation found issues.")
+            st.dataframe(pd.DataFrame([issue.__dict__ for issue in result.issues]), use_container_width=True)
     st.subheader("Expected internal lab template")
+    if st.button("Write internal templates"):
+        st.json(write_internal_templates(PROJECT_ROOT / "data" / "templates"))
     st.code(
         "compound_name, smiles, matrix, column, mobile_phase_a, mobile_phase_b, "
         "ph, temperature_c, flow_rate_ml_min, ionization_mode, retention_time_min, quality_score"
     )
 
 
+def _load_master_or_mock() -> pd.DataFrame:
+    if MASTER_DATASET_PATH.exists():
+        return pd.read_csv(MASTER_DATASET_PATH)
+    return load_dataset_browser_records()
+
+
 PAGES = {
     "Dashboard": dashboard,
+    "Dataset assembly": dataset_assembly_page,
+    "Training": training_page,
     "Compound lookup / structure input": compound_lookup,
     "Forward prediction": forward_prediction,
     "Method recommendation": method_recommendation,

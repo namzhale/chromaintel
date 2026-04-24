@@ -31,11 +31,40 @@ Train the baseline model on mock data:
 python scripts/train_baselines.py
 ```
 
+Build the unified canonical dataset and model matrix:
+
+```powershell
+python scripts/assemble_dataset.py
+```
+
+This writes:
+
+- `data/processed/master_dataset.csv`
+- `data/processed/model_matrix.csv`
+- `data/templates/internal_lab_historical_runs_template.csv`
+- `data/templates/internal_lab_data_dictionary.md`
+
+Train the multi-model forward pipeline and generate evaluation outputs:
+
+```powershell
+python scripts/train_models.py
+```
+
+This trains Ridge, RandomForest, and HistGradientBoosting models for RT and provisional peak quality, then writes:
+
+- `data/processed/models/trained_forward_bundle.joblib`
+- `reports/model_training_summary.md`
+- `reports/test_predictions.csv`
+- `reports/feature_importance.csv`
+- reproducible Plotly HTML plots under `data/processed/plots/`
+
 Run the GUI:
 
 ```powershell
 streamlit run app/gui/streamlit_app.py
 ```
+
+The GUI includes Dataset Assembly and Training pages. Forward Prediction and Method Recommendation automatically use `data/processed/models/trained_forward_bundle.joblib` when present, then fall back to the older baseline or transparent heuristic.
 
 Run the API:
 
@@ -81,6 +110,33 @@ The MVP avoids blocking on private resources or scraping. Public and optional so
 - `app/adapters/internal_lab_template.py`
 
 Internal lab files should map to the normalized record columns used in `data/mock_training_records.csv`. Raw exports can be staged in `data/raw/`; cleaned model-ready tables can go in `data/processed/`.
+
+## Internal Lab Onboarding
+
+Generate the practical CSV template and data dictionary:
+
+```powershell
+python scripts/assemble_dataset.py
+```
+
+Template files:
+
+- `data/templates/internal_lab_historical_runs_template.csv`
+- `data/templates/internal_lab_data_dictionary.md`
+
+The Admin/import GUI page previews uploaded CSV files and validates required fields, numeric ranges, invalid SMILES, and duplicate run IDs.
+
+## Model Evaluation
+
+The generated report at `reports/model_training_summary.md` contains:
+
+- datasets and row counts
+- feature set summary
+- tested model families
+- best RT and quality models
+- MAE, RMSE, and R2 metrics
+- source-wise performance
+- limitations and next steps for internal fine-tuning
 
 ## Testing
 

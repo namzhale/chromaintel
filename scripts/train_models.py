@@ -39,18 +39,19 @@ def _load_trainer() -> Callable[..., object]:
     return train_forward_models
 
 
-def _ensure_model_matrix(matrix_path: Path) -> pd.DataFrame:
+def _ensure_model_matrix(matrix_path: Path) -> tuple[Path, pd.DataFrame]:
     if matrix_path.exists():
         print(f"Using existing model matrix: {matrix_path.resolve()}")
     else:
         print(f"Model matrix not found at {matrix_path.resolve()}; running assembly first.")
         outputs = assemble_dataset(output_dir=matrix_path.parent)
+        matrix_path = outputs.model_matrix_path
         print(
             "Assembly produced model matrix: "
             f"{outputs.model_matrix_path.resolve()} "
             f"({outputs.model_matrix_rows} rows x {outputs.model_matrix_columns} columns)"
         )
-    return pd.read_csv(matrix_path)
+    return matrix_path, pd.read_csv(matrix_path)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -86,9 +87,9 @@ def _parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
-    matrix = _ensure_model_matrix(args.matrix)
+    matrix_path, matrix = _ensure_model_matrix(args.matrix)
     print(
-        f"Loaded model matrix: {args.matrix.resolve()} "
+        f"Loaded model matrix: {matrix_path.resolve()} "
         f"({len(matrix)} rows x {len(matrix.columns)} columns)"
     )
 
@@ -102,6 +103,13 @@ def main(argv: list[str] | None = None) -> int:
         )
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
+        return 1
+    except Exception as exc:
+        print(
+            "Training failed while running app.models.training.train_forward_models: "
+            f"{type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
         return 1
 
     payload = asdict(summary) if hasattr(summary, "__dataclass_fields__") else {}
