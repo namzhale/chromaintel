@@ -42,6 +42,7 @@ class DescriptorCalculator:
             "aromatic_ring_count": int(rdMolDescriptors.CalcNumAromaticRings(mol)),
             "formal_charge": int(Chem.GetFormalCharge(mol)),
             "heavy_atom_count": int(mol.GetNumHeavyAtoms()),
+            "fraction_csp3": float(rdMolDescriptors.CalcFractionCSP3(mol)),
             "morgan_fp": fp_list,
         }
 

@@ -63,7 +63,9 @@ def normalize_source_frame(frame: pd.DataFrame, source_dataset: str) -> pd.DataF
     normalized["stationary_phase_type"] = normalized.apply(_infer_stationary_phase_type, axis=1)
     normalized = _derive_gradient_fields(normalized)
     normalized = _canonicalize_compounds(normalized)
-    normalized["success_flag"] = normalized["success_flag"].fillna(True)
+    normalized["success_flag"] = normalized["success_flag"].where(
+        normalized["success_flag"].notna(), True
+    )
     normalized["missing_fields_count"] = normalized[CANONICAL_DATASET_COLUMNS[:-1]].isna().sum(axis=1)
     return normalized[CANONICAL_DATASET_COLUMNS]
 
