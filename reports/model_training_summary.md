@@ -33,9 +33,9 @@ The model uses RDKit compound descriptors, simplified LC gradient encodings, col
 
 | model | validation_mae | validation_rmse | validation_r2 | test_mae | test_rmse | test_r2 |
 | --- | --- | --- | --- | --- | --- | --- |
-| linear_ridge | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| random_forest | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| hist_gradient_boosting | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
+| linear_ridge | 0.034 | 0.041 | 0.616 | 0.069 | 0.076 | 0.386 |
+| random_forest | 0.058 | 0.059 | 0.202 | 0.085 | 0.089 | 0.172 |
+| hist_gradient_boosting | 0.068 | 0.069 | -0.063 | 0.099 | 0.102 | -0.095 |
 
 ## Source-wise Performance
 

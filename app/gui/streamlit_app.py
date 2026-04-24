@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import plotly.express as px
@@ -8,13 +10,9 @@ import streamlit as st
 
 from app.adapters.pubchem import PubChemClient
 from app.models.baseline import train_baseline_models
-from app.models.training import train_forward_models
 from app.schemas.method import CompoundInput, GradientStep, MethodInput, MSSettingsInput
-from app.services.dataset_assembly import assemble_master_dataset, normalize_source_frame
 from app.services.data_loader import load_dataset_browser_records, load_training_records
 from app.services.descriptors import DescriptorCalculator, InvalidStructureError
-from app.services.feature_engineering import build_model_matrix
-from app.services.internal_validation import validate_internal_lab_frame, write_internal_templates
 from app.services.predictor import ForwardPredictor
 from app.services.recommendation import RecommendationEngine
 
@@ -31,6 +29,85 @@ PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 MASTER_DATASET_PATH = PROCESSED_DIR / "master_dataset.csv"
 MODEL_MATRIX_PATH = PROCESSED_DIR / "model_matrix.csv"
 REPORTS_DIR = PROJECT_ROOT / "reports"
+FEATURE_IMPORTANCE_PATH = REPORTS_DIR / "feature_importance.csv"
+TRAINED_MODEL_PATH = PROCESSED_DIR / "models" / "trained_forward_bundle.joblib"
+MOCK_TRAINING_RECORDS_PATH = PROJECT_ROOT / "data" / "mock_training_records.csv"
+TEMPLATES_DIR = PROJECT_ROOT / "data" / "templates"
+INTERNAL_TEMPLATE_PATH = TEMPLATES_DIR / "internal_lab_historical_runs_template.csv"
+INTERNAL_DICTIONARY_PATH = TEMPLATES_DIR / "internal_lab_data_dictionary.md"
+
+
+def _optional_import_training():
+    try:
+        from app.models.training import train_forward_models
+    except Exception as exc:
+        return None, exc
+    return train_forward_models, None
+
+
+def _optional_import_assembly():
+    try:
+        from scripts.assemble_dataset import assemble_dataset
+    except Exception as exc:
+        return None, exc
+    return assemble_dataset, None
+
+
+def _optional_import_internal_validation():
+    try:
+        from app.services.internal_validation import (
+            validate_internal_lab_frame,
+            write_internal_templates,
+        )
+    except Exception as exc:
+        return None, None, exc
+    return validate_internal_lab_frame, write_internal_templates, None
+
+
+def _read_csv(path: Path) -> pd.DataFrame | None:
+    if not path.exists():
+        return None
+    try:
+        return pd.read_csv(path)
+    except Exception as exc:
+        st.error(f"Could not read {path}: {exc}")
+        return None
+
+
+def _source_column(records: pd.DataFrame) -> str | None:
+    for column in ("source_dataset", "dataset_source", "source"):
+        if column in records.columns:
+            return column
+    return None
+
+
+def _missingness_frame(records: pd.DataFrame) -> pd.DataFrame:
+    missing = records.isna().sum().reset_index()
+    missing.columns = ["field", "missing_count"]
+    missing["missing_fraction"] = (
+        missing["missing_count"] / max(len(records), 1)
+    ).round(3)
+    return missing.sort_values(["missing_count", "field"], ascending=[False, True])
+
+
+def _metrics_frame(metrics: dict[str, dict[str, float]]) -> pd.DataFrame:
+    if not metrics:
+        return pd.DataFrame()
+    return pd.DataFrame(metrics).T.reset_index(names="model").round(3)
+
+
+def _issue_frame(issues: list[Any]) -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "row": getattr(issue, "row", None),
+                "column": getattr(issue, "column", None),
+                "severity": getattr(issue, "severity", None),
+                "message": getattr(issue, "message", None),
+            }
+            for issue in issues
+        ]
+    )
 
 
 def default_method() -> MethodInput:
@@ -127,85 +204,159 @@ def compound_form(prefix: str = "compound") -> CompoundInput:
 def dashboard() -> None:
     st.title("AI LC-MS/MS Method Development")
     records = _load_master_or_mock()
+    if records.empty:
+        st.info("No dataset is available yet. Use Dataset assembly to build from the mock source.")
+        return
     cols = st.columns(4)
     cols[0].metric("Records", len(records))
-    cols[1].metric("Compounds", records["compound_name"].nunique())
-    source_col = "source_dataset" if "source_dataset" in records.columns else "dataset_source"
-    rt_col = "rt_min" if "rt_min" in records.columns else "retention_time_min"
+    cols[1].metric("Compounds", records["compound_name"].nunique() if "compound_name" in records.columns else "n/a")
+    source_col = _source_column(records)
+    rt_col = "rt_min" if "rt_min" in records.columns else "retention_time_min" if "retention_time_min" in records.columns else None
     quality_col = "quality_score" if "quality_score" in records.columns else None
-    cols[2].metric("Sources", records[source_col].nunique())
-    cols[3].metric("Median RT", f"{records[rt_col].median():.2f} min")
-    st.plotly_chart(
-        px.scatter(
-            records,
-            x=rt_col,
-            y=quality_col or rt_col,
-            color=source_col,
-            hover_data=[col for col in ["compound_name", "column_name", "column", "matrix"] if col in records.columns],
-        ),
-        use_container_width=True,
-    )
+    cols[2].metric("Sources", records[source_col].nunique() if source_col else "n/a")
+    cols[3].metric("Median RT", f"{records[rt_col].median():.2f} min" if rt_col else "n/a")
+    if rt_col:
+        st.plotly_chart(
+            px.scatter(
+                records,
+                x=rt_col,
+                y=quality_col or rt_col,
+                color=source_col,
+                hover_data=[col for col in ["compound_name", "column_name", "column", "matrix"] if col in records.columns],
+            ),
+            use_container_width=True,
+        )
+    else:
+        st.dataframe(records.head(25), use_container_width=True, hide_index=True)
 
 
 def dataset_assembly_page() -> None:
     st.title("Dataset Assembly")
     st.caption("Canonical source merge for METLIN SMRT, RepoRT, PubChem/ChEMBL enrichment, and internal lab templates.")
-    if st.button("Build from mock source", type="primary"):
-        raw = pd.read_csv(PROJECT_ROOT / "data" / "mock_training_records.csv")
-        normalized = normalize_source_frame(raw, "mock_training_records")
-        master = assemble_master_dataset([normalized])
-        matrix = build_model_matrix(master)
-        PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
-        master.to_csv(MASTER_DATASET_PATH, index=False)
-        matrix.to_csv(MODEL_MATRIX_PATH, index=False)
-        outputs = write_internal_templates(PROJECT_ROOT / "data" / "templates")
-        st.success(f"Built {len(master)} master rows and {len(matrix)} model rows.")
-        st.json(outputs)
+    st.caption(f"Master dataset path: {MASTER_DATASET_PATH}")
 
-    if MASTER_DATASET_PATH.exists():
-        master = pd.read_csv(MASTER_DATASET_PATH)
+    build_disabled = not MOCK_TRAINING_RECORDS_PATH.exists()
+    if st.button("Build from mock source", type="primary", disabled=build_disabled):
+        assemble_dataset, import_error = _optional_import_assembly()
+        if import_error:
+            st.error(f"Dataset assembly function is unavailable: {import_error}")
+        else:
+            try:
+                outputs = assemble_dataset(
+                    source_path=MOCK_TRAINING_RECORDS_PATH,
+                    output_dir=PROCESSED_DIR,
+                    templates_dir=TEMPLATES_DIR,
+                )
+                st.success(
+                    f"Built {outputs.master_rows} master rows and "
+                    f"{outputs.model_matrix_rows} model rows."
+                )
+                st.json(
+                    {
+                        "source_path": str(outputs.source_path),
+                        "master_path": str(outputs.master_path),
+                        "model_matrix_path": str(outputs.model_matrix_path),
+                        "template_paths": {
+                            key: str(path) for key, path in outputs.template_paths.items()
+                        },
+                    }
+                )
+            except Exception as exc:
+                st.error(f"Dataset assembly failed: {exc}")
+    if build_disabled:
+        st.warning(f"Mock source is not available at {MOCK_TRAINING_RECORDS_PATH}.")
+
+    master = _read_csv(MASTER_DATASET_PATH)
+    if master is not None:
         c1, c2, c3 = st.columns(3)
         c1.metric("Master rows", len(master))
-        c2.metric("Compounds", master["compound_name"].nunique())
-        c3.metric("Sources", master["source_dataset"].nunique())
-        st.subheader("Source distribution")
-        st.plotly_chart(px.histogram(master, x="source_dataset"), use_container_width=True)
+        c2.metric("Compounds", master["compound_name"].nunique() if "compound_name" in master.columns else "n/a")
+        source_col = _source_column(master)
+        c3.metric("Sources", master[source_col].nunique() if source_col else "n/a")
+        if source_col:
+            st.subheader("Source distribution")
+            source_counts = master[source_col].value_counts(dropna=False).reset_index()
+            source_counts.columns = ["source", "rows"]
+            st.plotly_chart(px.bar(source_counts, x="source", y="rows"), use_container_width=True)
+            st.dataframe(source_counts, use_container_width=True, hide_index=True)
         st.subheader("Missingness")
-        missing = master.isna().mean().sort_values(ascending=False).reset_index()
-        missing.columns = ["field", "missing_fraction"]
-        st.dataframe(missing, use_container_width=True, hide_index=True)
+        st.dataframe(_missingness_frame(master), use_container_width=True, hide_index=True)
         st.subheader("Example rows")
         st.dataframe(master.head(25), use_container_width=True, hide_index=True)
     else:
-        st.info("No processed master dataset yet. Build it from mock source or run scripts/assemble_dataset.py.")
+        st.info(
+            "No processed master dataset yet. Build it from the mock source here, "
+            "or run scripts/assemble_dataset.py from the project root."
+        )
 
 
 def training_page() -> None:
     st.title("Training")
-    if not MODEL_MATRIX_PATH.exists():
+    matrix = _read_csv(MODEL_MATRIX_PATH)
+    if matrix is None:
         st.warning("No model matrix found. Build the dataset first.")
+        st.caption(f"Expected model matrix path: {MODEL_MATRIX_PATH}")
         return
-    matrix = pd.read_csv(MODEL_MATRIX_PATH)
+
     st.caption(f"Model matrix: {MODEL_MATRIX_PATH}")
-    st.metric("Rows", len(matrix))
-    st.metric("Columns", len(matrix.columns))
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Rows", len(matrix))
+    c2.metric("Columns", len(matrix.columns))
+    c3.metric("Usable RT rows", int(matrix["rt_min"].notna().sum()) if "rt_min" in matrix.columns else "n/a")
+    c4.metric("Existing artifact", "yes" if TRAINED_MODEL_PATH.exists() else "no")
+
+    with st.expander("Training configuration", expanded=True):
+        st.json(
+            {
+                "trainer": "app.models.training.train_forward_models",
+                "matrix_path": str(MODEL_MATRIX_PATH),
+                "artifact_path": str(TRAINED_MODEL_PATH),
+                "report_dir": str(REPORTS_DIR),
+                "plots_dir": str(PROCESSED_DIR / "plots"),
+            }
+        )
+
     if st.button("Train forward models", type="primary"):
-        summary = train_forward_models(matrix)
-        st.success("Training complete")
-        st.json(summary.__dict__)
+        train_forward_models, import_error = _optional_import_training()
+        if import_error:
+            st.error(f"Training function is unavailable: {import_error}")
+        else:
+            try:
+                summary = train_forward_models(
+                    matrix,
+                    artifact_path=TRAINED_MODEL_PATH,
+                    report_dir=REPORTS_DIR,
+                    plots_dir=PROCESSED_DIR / "plots",
+                )
+            except Exception as exc:
+                st.error(f"Training failed: {exc}")
+            else:
+                payload = asdict(summary)
+                st.success("Training complete")
+                s1, s2, s3, s4 = st.columns(4)
+                s1.metric("Train rows", payload["n_train"])
+                s2.metric("Validation rows", payload["n_validation"])
+                s3.metric("Test rows", payload["n_test"])
+                s4.metric("Feature columns", len(payload["feature_columns"]))
+                st.caption(f"Artifact: {payload['artifact_path']}")
+                st.caption(f"Report: {payload['report_path']}")
+                st.subheader("RT metrics")
+                st.dataframe(_metrics_frame(payload["rt_metrics"]), use_container_width=True, hide_index=True)
+                st.subheader("Quality metrics")
+                st.dataframe(_metrics_frame(payload["quality_metrics"]), use_container_width=True, hide_index=True)
 
     report_path = REPORTS_DIR / "model_training_summary.md"
     if report_path.exists():
         st.subheader("Training report")
         st.markdown(report_path.read_text(encoding="utf-8"))
-    importance_path = REPORTS_DIR / "feature_importance.csv"
-    if importance_path.exists():
+    if FEATURE_IMPORTANCE_PATH.exists():
         st.subheader("Feature importance")
-        importance = pd.read_csv(importance_path).head(20)
+        importance = pd.read_csv(FEATURE_IMPORTANCE_PATH).head(20)
         st.plotly_chart(
             px.bar(importance, x="importance_mean", y="feature", orientation="h"),
             use_container_width=True,
         )
+        st.dataframe(importance, use_container_width=True, hide_index=True)
 
 
 def compound_lookup() -> None:
@@ -302,23 +453,37 @@ def method_recommendation() -> None:
 def dataset_browser() -> None:
     st.title("Dataset Browser")
     records = _load_master_or_mock()
+    if records.empty:
+        st.info("No dataset is available yet. Use Dataset assembly to build from the mock source.")
+        return
     compound_col = "compound_name"
-    column_col = "column_name" if "column_name" in records.columns else "column"
-    source_col = "source_dataset" if "source_dataset" in records.columns else "dataset_source"
-    ion_col = "ion_mode" if "ion_mode" in records.columns else "ionization_mode"
+    column_col = "column_name" if "column_name" in records.columns else "column" if "column" in records.columns else None
+    ion_col = "ion_mode" if "ion_mode" in records.columns else "ionization_mode" if "ionization_mode" in records.columns else None
     col_a, col_b, col_c, col_d = st.columns(4)
-    compound = col_a.multiselect("Compound", sorted(records[compound_col].dropna().unique()))
-    column = col_b.multiselect("Column", sorted(records[column_col].dropna().unique()))
-    matrix = col_c.multiselect("Matrix", sorted(records["matrix"].dropna().unique()))
-    ion = col_d.multiselect("Ionization", sorted(records[ion_col].dropna().unique()))
+    compound = col_a.multiselect(
+        "Compound",
+        sorted(records[compound_col].dropna().unique()) if compound_col in records.columns else [],
+    )
+    column = col_b.multiselect(
+        "Column",
+        sorted(records[column_col].dropna().unique()) if column_col else [],
+    )
+    matrix = col_c.multiselect(
+        "Matrix",
+        sorted(records["matrix"].dropna().unique()) if "matrix" in records.columns else [],
+    )
+    ion = col_d.multiselect(
+        "Ionization",
+        sorted(records[ion_col].dropna().unique()) if ion_col else [],
+    )
     filtered = records.copy()
-    if compound:
+    if compound and compound_col in filtered.columns:
         filtered = filtered[filtered[compound_col].isin(compound)]
-    if column:
+    if column and column_col:
         filtered = filtered[filtered[column_col].isin(column)]
-    if matrix:
+    if matrix and "matrix" in filtered.columns:
         filtered = filtered[filtered["matrix"].isin(matrix)]
-    if ion:
+    if ion and ion_col:
         filtered = filtered[filtered[ion_col].isin(ion)]
     st.dataframe(filtered, use_container_width=True, hide_index=True)
 
@@ -342,29 +507,54 @@ def model_evaluation() -> None:
 
 def admin_import() -> None:
     st.title("Admin / Import")
+    validate_internal_lab_frame, write_internal_templates, import_error = _optional_import_internal_validation()
     uploaded = st.file_uploader("Import normalized CSV", type=["csv"])
     if uploaded:
-        frame = pd.read_csv(uploaded)
+        try:
+            frame = pd.read_csv(uploaded)
+        except Exception as exc:
+            st.error(f"Could not read uploaded CSV: {exc}")
+            return
         st.dataframe(frame.head(50), use_container_width=True)
-        result = validate_internal_lab_frame(frame)
-        if result.is_valid:
-            st.success("Import validation passed.")
+        if import_error:
+            st.error(f"Internal validation is unavailable: {import_error}")
         else:
-            st.error("Import validation found issues.")
-            st.dataframe(pd.DataFrame([issue.__dict__ for issue in result.issues]), use_container_width=True)
+            result = validate_internal_lab_frame(frame)
+            if result.is_valid:
+                st.success("Import validation passed.")
+            else:
+                st.error("Import validation found issues.")
+            issues = _issue_frame(result.issues)
+            if not issues.empty:
+                st.dataframe(issues, use_container_width=True, hide_index=True)
     st.subheader("Expected internal lab template")
-    if st.button("Write internal templates"):
-        st.json(write_internal_templates(PROJECT_ROOT / "data" / "templates"))
+    st.caption(f"Template CSV: {INTERNAL_TEMPLATE_PATH}")
+    st.caption(f"Data dictionary: {INTERNAL_DICTIONARY_PATH}")
+    if st.button("Write internal templates", disabled=write_internal_templates is None):
+        try:
+            st.json(write_internal_templates(TEMPLATES_DIR))
+        except Exception as exc:
+            st.error(f"Could not write internal templates: {exc}")
+    if import_error:
+        st.warning(f"Template writer is unavailable: {import_error}")
+    elif INTERNAL_TEMPLATE_PATH.exists() or INTERNAL_DICTIONARY_PATH.exists():
+        st.info("Template files are already available at the paths above.")
     st.code(
-        "compound_name, smiles, matrix, column, mobile_phase_a, mobile_phase_b, "
-        "ph, temperature_c, flow_rate_ml_min, ionization_mode, retention_time_min, quality_score"
+        "run_id, compound_name, smiles, matrix, sample_prep, column_name, "
+        "mobile_phase_a, mobile_phase_b, ph, gradient_profile, total_runtime_min, "
+        "flow_ml_min, ion_mode, rt_min, sn_ratio, resolution, success_flag"
     )
 
 
 def _load_master_or_mock() -> pd.DataFrame:
-    if MASTER_DATASET_PATH.exists():
-        return pd.read_csv(MASTER_DATASET_PATH)
-    return load_dataset_browser_records()
+    master = _read_csv(MASTER_DATASET_PATH)
+    if master is not None:
+        return master
+    try:
+        return load_dataset_browser_records()
+    except Exception as exc:
+        st.warning(f"Could not load mock dataset: {exc}")
+        return pd.DataFrame()
 
 
 PAGES = {

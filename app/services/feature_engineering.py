@@ -186,7 +186,7 @@ def _identity_fields(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _target_fields(row: dict[str, Any]) -> dict[str, Any]:
-    return {column: row.get(column, np.nan) for column in TARGET_COLUMNS if column != "quality_score"}
+    return {column: row.get(column, np.nan) for column in TARGET_COLUMNS}
 
 
 def _num(value: object, default: float | None = np.nan) -> float:
@@ -194,4 +194,3 @@ def _num(value: object, default: float | None = np.nan) -> float:
     if pd.isna(parsed):
         return float(default) if default is not None and pd.notna(default) else np.nan
     return float(parsed)
-

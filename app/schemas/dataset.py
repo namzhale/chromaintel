@@ -36,6 +36,7 @@ CANONICAL_DATASET_COLUMNS = [
     "resolution",
     "matrix",
     "success_flag",
+    "quality_score",
     "notes",
     "missing_fields_count",
 ]
@@ -70,5 +71,5 @@ NUMERIC_CANONICAL_COLUMNS = [
     "tailing_factor",
     "asymmetry",
     "resolution",
+    "quality_score",
 ]
-
