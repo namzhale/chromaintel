@@ -1,0 +1,101 @@
+# AI-Assisted LC-MS/MS Method Development MVP
+
+Practical local MVP for bioanalytical small-molecule LC-MS/MS method development. It supports forward retention-time and peak-quality prediction, constrained method recommendation, mock public/internal datasets, PostgreSQL schema, FastAPI routes, and a Streamlit GUI.
+
+## What is included
+
+- PostgreSQL schema for compounds, structures, datasets, methods, gradients, runs, peak metrics, MS settings, predictions, recommendations, and audit logs.
+- RDKit descriptor pipeline: MW, logP, TPSA, HBD/HBA, rotatable bonds, aromatic rings, charge, heavy atoms, and Morgan fingerprints.
+- Offline-first adapters for internal lab templates, METLIN SMRT, RepoRT, ChEMBL, MassBank, and MoNA.
+- PubChem enrichment client for name or CID lookup.
+- RandomForest baseline training for RT and quality score using mock records.
+- Heuristic fallback predictions so the GUI remains useful before model artifacts exist.
+- Recommendation engine that generates candidate methods and ranks them by RT fit, quality, and runtime.
+- Streamlit pages: Dashboard, Compound lookup, Forward prediction, Method recommendation, Dataset browser, Model evaluation, Admin/import.
+- Literature and market review PDF: `docs/literature_market_review_ai_lcms_bioanalysis.pdf`.
+
+## Local setup
+
+```powershell
+cd C:\study\cheminf\pract\lcms_method_mvp
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+Copy-Item .env.example .env
+```
+
+Train the baseline model on mock data:
+
+```powershell
+python scripts/train_baselines.py
+```
+
+Run the GUI:
+
+```powershell
+streamlit run app/gui/streamlit_app.py
+```
+
+Run the API:
+
+```powershell
+uvicorn app.api.main:app --reload
+```
+
+## Docker Compose
+
+```powershell
+docker compose up --build
+```
+
+- Streamlit GUI: http://localhost:8501
+- FastAPI app service: http://localhost:8001/docs
+- PostgreSQL: localhost:5432, database `lcms_method_dev`, user/password `lcms/lcms`
+
+## Database
+
+For quick local table creation:
+
+```powershell
+python -m app.db.init_db
+python scripts/seed_db.py
+```
+
+For migration-managed databases:
+
+```powershell
+alembic upgrade head
+```
+
+## Data import approach
+
+The MVP avoids blocking on private resources or scraping. Public and optional sources are represented as normalized offline CSV/JSON import modules:
+
+- `app/adapters/metlin_smrt.py`
+- `app/adapters/report.py`
+- `app/adapters/pubchem.py`
+- `app/adapters/chembl.py`
+- `app/adapters/massbank.py`
+- `app/adapters/mona.py`
+- `app/adapters/internal_lab_template.py`
+
+Internal lab files should map to the normalized record columns used in `data/mock_training_records.csv`. Raw exports can be staged in `data/raw/`; cleaned model-ready tables can go in `data/processed/`.
+
+## Testing
+
+```powershell
+python -m pytest tests
+```
+
+Current tests cover:
+
+- RDKit descriptor calculation and invalid SMILES handling.
+- Recommendation candidate ranking and method runtime calculation.
+
+## Notes for real lab integration
+
+- Replace mock records with internal LC-MS/MS assay development runs, keeping source provenance in `datasets.source_type`.
+- Keep audited recommendation inputs and outputs in `audit_log` and `recommendations`.
+- Add matrix, sample preparation, protein precipitation/extraction, and instrument platform fields as metadata until the lab schema stabilizes.
+- Treat METLIN SMRT and RepoRT as pretraining/benchmarking sources, then calibrate with internal accepted peak metrics.

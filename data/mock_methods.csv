@@ -1,0 +1,5 @@
+method_name,column,stationary_phase,mobile_phase_a,mobile_phase_b,ph,temperature_c,flow_rate_ml_min,injection_volume_ul,runtime_min,initial_percent_b,final_percent_b
+Fast acidic C18,BEH C18 50x2.1 mm 1.7um,reversed phase,Water + 0.1% formic acid,Acetonitrile + 0.1% formic acid,3.2,40,0.35,2,5.8,5,95
+Buffered phenyl,CSH Phenyl-Hexyl 50x2.1 mm 1.7um,reversed phase,10 mM ammonium formate in water,Methanol + 0.1% formic acid,4.8,45,0.30,3,8.8,10,98
+Polar HILIC,HILIC Amide 100x2.1 mm 2.6um,HILIC,10 mM ammonium formate in water,Acetonitrile + 0.1% formic acid,3.2,35,0.40,2,7.0,90,45
+Neutral screen C18,BEH C18 50x2.1 mm 1.7um,reversed phase,Water + 2 mM ammonium acetate,Acetonitrile,7.0,35,0.45,2,6.0,5,95

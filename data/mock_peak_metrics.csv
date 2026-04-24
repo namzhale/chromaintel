@@ -1,0 +1,11 @@
+run_identifier,compound_name,retention_time_min,peak_area,asymmetry,resolution,signal_to_noise,quality_score
+INT-001,Caffeine,1.35,212000,1.05,2.1,82,0.91
+INT-001,Metoprolol,2.75,168000,1.18,1.8,61,0.84
+INT-001,Atenolol,1.10,148000,1.25,1.5,48,0.77
+INT-002,Warfarin,5.95,191000,1.12,2.4,75,0.88
+INT-002,Labetalol,3.60,131000,1.32,1.6,44,0.73
+SMRT-001,Ibuprofen,4.30,116000,1.08,2.0,70,0.86
+REPORT-001,Diclofenac,4.85,98000,1.20,1.7,54,0.79
+REPORT-001,Ibuprofen,4.10,102000,1.16,1.9,59,0.82
+REPORT-002,Caffeine,2.05,176000,1.14,1.8,66,0.82
+REPORT-002,Atenolol,3.20,121000,1.38,1.4,38,0.68

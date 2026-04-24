@@ -1,0 +1,9 @@
+compound_name,smiles,pubchem_cid,chembl_id,matrix
+Caffeine,Cn1cnc2c1c(=O)n(C)c(=O)n2C,2519,CHEMBL113,plasma
+Metoprolol,CC(C)NCC(O)COc1ccc(CCOC)cc1,4171,CHEMBL13,plasma
+Warfarin,CC(=O)CC(c1ccccc1)c1c(O)c2ccccc2oc1=O,54678486,CHEMBL1464,plasma
+Ibuprofen,CC(C)Cc1ccc(C(C)C(=O)O)cc1,3672,CHEMBL521,plasma
+Atorvastatin,CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccc(F)cc2)n(Cc2ccc(O)cc2)c1CC[C@H](O)C[C@H](O)CC(=O)O,60823,CHEMBL1487,plasma
+Atenolol,CC(C)NCC(O)COc1ccc(CC(N)=O)cc1,2249,CHEMBL24,plasma
+Labetalol,CC(CCc1ccccc1)NCC(O)c1ccc(O)c(C(N)=O)c1,3869,CHEMBL429,plasma
+Diclofenac,O=C(O)Cc1ccccc1Nc1c(Cl)cccc1Cl,3033,CHEMBL139,plasma

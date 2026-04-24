@@ -1,0 +1,6 @@
+run_identifier,dataset_source,method_name,matrix,ionization_mode,precursor_mz
+INT-001,internal_lab,Fast acidic C18,plasma,positive,195.1
+INT-002,internal_lab,Buffered phenyl,plasma,positive,268.2
+SMRT-001,METLIN_SMRT,Fast acidic C18,reference,positive,207.1
+REPORT-001,RepoRT,Neutral screen C18,reference,negative,205.1
+REPORT-002,RepoRT,Polar HILIC,reference,positive,267.1

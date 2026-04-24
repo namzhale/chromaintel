@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: lcms
+      POSTGRES_PASSWORD: lcms
+      POSTGRES_DB: lcms_method_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lcms -d lcms_method_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://lcms:lcms@postgres:5432/lcms_method_dev
+      MODEL_ARTIFACT_DIR: data/processed/models
+    ports:
+      - "8501:8501"
+      - "8000:8000"
+    volumes:
+      - .:/app
+    command: >
+      sh -c "python -m app.db.init_db &&
+             python scripts/train_baselines.py &&
+             streamlit run app/gui/streamlit_app.py --server.address=0.0.0.0 --server.port=8501"
+
+  api:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://lcms:lcms@postgres:5432/lcms_method_dev
+      MODEL_ARTIFACT_DIR: data/processed/models
+    ports:
+      - "8001:8000"
+    volumes:
+      - .:/app
+    command: >
+      sh -c "python -m app.db.init_db &&
+             uvicorn app.api.main:app --host 0.0.0.0 --port 8000"
+
+volumes:
+  postgres_data:
