@@ -1,0 +1,4 @@
+compound_name,source_dataset,rt_min,quality_score,predicted_rt_min,predicted_quality_score,rt_error_min
+Atorvastatin,METLIN_SMRT,7.25,0.55,2.243864212566642,0.5499999999999999,-5.006135787433358
+Atenolol,RepoRT,3.2,0.55,0.7462097080459689,0.5499999999999999,-2.4537902919540313
+Caffeine,internal_lab,1.35,0.55,2.591811496672224,0.5499999999999999,1.241811496672224

@@ -31,6 +31,7 @@ class CandidateSearchSpace:
         default_factory=lambda: ["Acetonitrile + 0.1% formic acid", "Methanol + 0.1% formic acid"]
     )
     gradient_end_times: list[float] = field(default_factory=lambda: [3.5, 5.0, 8.0])
+    max_runtime_min: float = 12.0
 
 
 class RecommendationEngine:
@@ -49,6 +50,7 @@ class RecommendationEngine:
             "quality": settings.recommendation_quality_weight,
             "rt_fit": settings.recommendation_rt_weight,
             "runtime": settings.recommendation_runtime_weight,
+            "confidence": settings.recommendation_confidence_weight,
         }
 
     def recommend(
@@ -65,11 +67,12 @@ class RecommendationEngine:
         for method in self._candidate_methods(allowed_columns, allowed_solvents_a, allowed_solvents_b):
             pred = self.predictor.predict(compound, method, ms_settings)
             rt_fit = 1.0 - min(abs(pred["predicted_rt_min"] - target_rt_min) / max(target_rt_min, 0.1), 1.0)
-            runtime_score = 1.0 - min(method.runtime_min / 12.0, 1.0)
+            runtime_penalty = min(method.runtime_min / max(self.search_space.max_runtime_min, 0.1), 1.0)
             score = (
-                self.weights["quality"] * pred["quality_score"]
                 + self.weights["rt_fit"] * rt_fit
-                + self.weights["runtime"] * runtime_score
+                + self.weights["quality"] * pred["quality_score"]
+                - self.weights["runtime"] * runtime_penalty
+                + self.weights["confidence"] * pred["confidence"]
             )
             candidates.append(
                 RecommendationCandidate(

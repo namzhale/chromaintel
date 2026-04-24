@@ -1,0 +1,36 @@
+# Internal Lab Historical Runs Data Dictionary
+
+- `run_id`: Unique analytical run or result identifier. Required.
+- `compound_name`: Analyte or internal standard name. Required.
+- `smiles`: Structure SMILES used for RDKit normalization. Required for model training.
+- `pubchem_cid`: Optional PubChem compound identifier.
+- `inchikey`: Optional source InChIKey; recalculated when SMILES is valid.
+- `matrix`: Biological matrix, e.g. plasma, serum, urine, whole blood.
+- `sample_prep`: Sample preparation summary, e.g. PPT, LLE, SPE.
+- `column_name`: Column brand/chemistry/dimensions. Required.
+- `column_chemistry`: Controlled chemistry label, e.g. C18, phenyl, HILIC.
+- `stationary_phase_type`: Reversed phase, HILIC, ion exchange, etc.
+- `mobile_phase_a`: A solvent/buffer composition. Required.
+- `mobile_phase_b`: B solvent/buffer composition. Required.
+- `ph`: Mobile phase pH; valid range 0-14.
+- `gradient_profile`: Human-readable gradient or JSON profile.
+- `initial_organic_pct`: Initial organic percent, usually percent B.
+- `final_organic_pct`: Final organic percent, usually percent B.
+- `gradient_duration_min`: Gradient ramp duration in minutes.
+- `total_runtime_min`: Total method runtime in minutes.
+- `temperature_c`: Column temperature in Celsius.
+- `flow_ml_min`: LC flow in mL/min; must be positive.
+- `injection_ul`: Injection volume in microliters.
+- `ion_mode`: positive, negative, both, or unknown.
+- `precursor_mz`: MRM/Q1 precursor m/z.
+- `product_mz`: MRM/Q3 product m/z.
+- `collision_energy_v`: Collision energy in volts/eV as recorded.
+- `rt_min`: Observed retention time in minutes. Required.
+- `peak_area`: Integrated peak area.
+- `peak_height`: Peak height.
+- `sn_ratio`: Signal-to-noise ratio.
+- `tailing_factor`: USP tailing factor where available.
+- `asymmetry`: Peak asymmetry factor where available.
+- `resolution`: Resolution to nearest critical neighbor.
+- `success_flag`: Whether the run/method met acceptance expectations.
+- `notes`: Free text comments and caveats.

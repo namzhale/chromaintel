@@ -7,6 +7,7 @@ import numpy as np
 
 from app.core.config import get_settings
 from app.models.baseline import BaselineModelBundle
+from app.models.training import TrainedForwardModelBundle
 from app.schemas.method import MethodInput, MSSettingsInput
 from app.services.features import build_feature_row
 
@@ -16,10 +17,15 @@ class ForwardPredictor:
 
     def __init__(self, artifact_path: str | Path | None = None):
         settings = get_settings()
-        self.artifact_path = Path(artifact_path or settings.model_artifact_dir) / "baseline_bundle.joblib"
+        model_dir = Path(artifact_path or settings.model_artifact_dir)
+        self.artifact_path = model_dir / "trained_forward_bundle.joblib"
+        self.legacy_artifact_path = model_dir / "baseline_bundle.joblib"
+        self._trained_bundle: TrainedForwardModelBundle | None = None
         self._bundle: BaselineModelBundle | None = None
         if self.artifact_path.exists():
-            self._bundle = BaselineModelBundle.load(self.artifact_path)
+            self._trained_bundle = TrainedForwardModelBundle.load(self.artifact_path)
+        elif self.legacy_artifact_path.exists():
+            self._bundle = BaselineModelBundle.load(self.legacy_artifact_path)
 
     def predict(
         self,
@@ -28,7 +34,11 @@ class ForwardPredictor:
         ms_settings: MSSettingsInput | None = None,
     ) -> dict[str, Any]:
         features = build_feature_row(compound, method, ms_settings)
-        if self._bundle:
+        if self._trained_bundle:
+            pred = self._trained_bundle.predict(features)
+            confidence = pred["confidence"]
+            model_note = f"trained {pred['model_name']}"
+        elif self._bundle:
             pred = self._bundle.predict(features)
             confidence = 0.72
             model_note = "trained RandomForest baseline"
@@ -42,6 +52,8 @@ class ForwardPredictor:
             "predicted_rt_min": round(pred["predicted_rt_min"], 2),
             "quality_score": round(pred["quality_score"], 3),
             "confidence": confidence,
+            "uncertainty_rt_min": round(float(pred.get("uncertainty_rt_min", 0.0)), 3),
+            "out_of_domain": self._out_of_domain(features),
             "risks": risks,
             "feature_summary": {
                 "model": model_note,
@@ -93,4 +105,13 @@ class ForwardPredictor:
             f"{pred['predicted_rt_min']:.2f} min. Retention is driven mainly by logP "
             f"({features.get('logp', 0):.2f}), TPSA ({features.get('tpsa', 0):.1f}), "
             f"column chemistry, and the gradient ending at {features.get('final_percent_b', 0):.0f}% B."
+        )
+
+    @staticmethod
+    def _out_of_domain(features: dict[str, Any]) -> bool:
+        return bool(
+            features.get("ph", 7.0) < 1.5
+            or features.get("ph", 7.0) > 10.5
+            or features.get("flow_ml_min", features.get("flow_rate_ml_min", 0.3)) > 1.5
+            or features.get("total_runtime_min", features.get("runtime_min", 5.0)) > 30
         )

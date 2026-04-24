@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     recommendation_quality_weight: float = 0.45
     recommendation_rt_weight: float = 0.4
     recommendation_runtime_weight: float = 0.15
+    recommendation_confidence_weight: float = 0.05
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

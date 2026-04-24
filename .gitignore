@@ -4,4 +4,6 @@ __pycache__/
 .ruff_cache/
 *.pyc
 data/processed/models/*.joblib
+!data/processed/models/trained_forward_bundle.joblib
+data/processed/plots/*.html
 .venv/
