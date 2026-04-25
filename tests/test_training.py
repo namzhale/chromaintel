@@ -1,6 +1,13 @@
+import pytest
 import pandas as pd
 
-from app.models.training import _candidate_models, train_forward_models
+from app.models.training import (
+    _candidate_models,
+    _group_kfold_scores,
+    _grouped_train_validation_test_split,
+    _groups_for_split,
+    train_forward_models,
+)
 from app.schemas.method import GradientStep, MethodInput, MSSettingsInput
 from app.services.predictor import ForwardPredictor
 
@@ -72,15 +79,27 @@ def test_train_forward_models_exports_sota_metadata_and_feature_importance(tmp_p
     assert "extra_trees" in summary.rt_metrics
     assert "xgboost" in summary.rt_metrics
     assert "catboost" in summary.rt_metrics
-    assert summary.validation_metadata["split_strategy"] == "random_holdout_with_source_metadata"
+    assert summary.validation_metadata["split_strategy"] == "group_shuffle_holdout_with_group_kfold_model_selection"
+    assert summary.validation_metadata["cv_strategy"] == "GroupKFold"
     assert summary.validation_metadata["source_counts"]["train"]["internal_lab"] > 0
     assert summary.validation_metadata["group_column"] == "inchikey"
-    assert "train_test" in summary.validation_metadata["group_overlap_counts"]
+    assert summary.validation_metadata["group_overlap_counts"] == {
+        "train_validation": 0,
+        "train_test": 0,
+        "validation_test": 0,
+    }
     assert summary.uncertainty_metadata["rt"]["method"] == "split_conformal_abs_residual_q90"
     assert summary.uncertainty_metadata["rt"]["q90_min"] >= 0
     assert (tmp_path / "reports" / "feature_importance.csv").exists()
     assert summary.feature_importance_path.endswith("feature_importance.csv")
     assert (tmp_path / "reports" / "sota_model_experiments.md").exists()
+    assert (tmp_path / "reports" / "cv_metrics.csv").exists()
+    assert (tmp_path / "reports" / "source_holdout_metrics.csv").exists()
+
+    cv_metrics = pd.read_csv(tmp_path / "reports" / "cv_metrics.csv")
+    assert {"validation_scope", "target", "model", "mae_mean", "rmse_mean", "r2_mean", "n_folds"}.issubset(
+        cv_metrics.columns
+    )
 
     feature_importance = pd.read_csv(tmp_path / "reports" / "feature_importance.csv")
     assert {"feature_group", "significance", "importance_z"}.issubset(feature_importance.columns)
@@ -95,6 +114,38 @@ def test_train_forward_models_exports_sota_metadata_and_feature_importance(tmp_p
 
     predictions = pd.read_csv(tmp_path / "reports" / "test_predictions.csv")
     assert {"rt_error_min", "abs_rt_error_min", "ad_flag", "ad_reason"}.issubset(predictions.columns)
+
+
+def test_grouped_split_has_no_inchikey_overlap():
+    frame = _training_matrix(row_count=30)
+    train, validation, test = _grouped_train_validation_test_split(frame, "inchikey")
+
+    train_groups = set(_groups_for_split(train, "inchikey"))
+    validation_groups = set(_groups_for_split(validation, "inchikey"))
+    test_groups = set(_groups_for_split(test, "inchikey"))
+
+    assert train_groups.isdisjoint(validation_groups)
+    assert train_groups.isdisjoint(test_groups)
+    assert validation_groups.isdisjoint(test_groups)
+
+
+def test_group_kfold_falls_back_to_available_group_count():
+    frame = _training_matrix(row_count=12)
+    frame["inchikey"] = [f"KEY{idx % 3}" for idx in range(len(frame))]
+    models = _candidate_models(categorical=["ion_mode"], numeric=["molecular_weight"])
+
+    scores = _group_kfold_scores(models, frame, ["ion_mode", "molecular_weight"], "rt_min", "inchikey", n_splits=5)
+
+    assert scores["extra_trees"]["n_folds"] == 3
+
+
+def test_group_kfold_requires_two_groups():
+    frame = _training_matrix(row_count=8)
+    frame["inchikey"] = "ONE_GROUP"
+    models = _candidate_models(categorical=["ion_mode"], numeric=["molecular_weight"])
+
+    with pytest.raises(ValueError, match="At least two unique"):
+        _group_kfold_scores(models, frame, ["ion_mode", "molecular_weight"], "rt_min", "inchikey")
 
 
 def test_trained_predictor_uses_bundle_applicability_domain(tmp_path):

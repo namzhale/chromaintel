@@ -50,16 +50,21 @@
     },
     {
       "source_name": "MCMRT",
-      "url": "https://www.nature.com/articles/s41597-024-03780-5",
-      "license": "review article and data repository terms before redistribution",
+      "url": "https://static-content.springer.com/esm/art%3A10.1038%2Fs41597-024-03780-5/MediaObjects/41597_2024_3780_MOESM1_ESM.xlsx",
+      "license": "ScienceDB dataset metadata reports CC0-1.0; preserve article URL and ScienceDB DOI provenance",
       "expected_fields": [
         "compound_name",
         "smiles",
         "rt_min",
         "column_name",
-        "chromatographic_method"
+        "chromatographic_method",
+        "mobile_phase_a",
+        "mobile_phase_b",
+        "gradient_profile",
+        "temperature_c",
+        "flow_ml_min"
       ],
-      "adapter_status": "candidate_source_not_yet_implemented",
+      "adapter_status": "implemented_supplement_xlsx_normalizer",
       "known_missingness": [
         "bioanalytical_matrix",
         "internal_standard",

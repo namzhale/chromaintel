@@ -8,6 +8,7 @@ from scripts.fetch_public_datasets import (
     import_local_public_export,
     list_report_dataset_ids,
     load_public_source_manifest,
+    normalize_mcmrt_workbook,
 )
 from scripts.assemble_dataset import assemble_dataset
 
@@ -20,6 +21,8 @@ def test_public_source_manifest_has_required_contract():
         assert REQUIRED_MANIFEST_FIELDS.issubset(source)
         assert source["expected_fields"]
         assert isinstance(source["known_missingness"], list)
+    mcmrt = next(source for source in sources if source["source_name"] == "MCMRT")
+    assert mcmrt["adapter_status"] == "implemented_supplement_xlsx_normalizer"
 
 
 @pytest.mark.parametrize("suffix", [".csv", ".tsv", ".jsonl"])
@@ -74,6 +77,68 @@ def test_import_local_public_export_rejects_files_without_rt(tmp_path):
             license_note="test license",
             processed_dir=tmp_path,
         )
+
+
+def test_normalize_mcmrt_workbook_melts_rt_matrix(tmp_path):
+    workbook = tmp_path / "mcmrt_unit.xlsx"
+    s2 = pd.DataFrame([[pd.NA] * 4 for _ in range(21)])
+    s2.iloc[0, 0] = "#Number"
+    s2.iloc[0, 1] = "CM 01"
+    s2.iloc[1, 0] = "LC method name"
+    s2.iloc[1, 1] = "C1_A1B1_10min"
+    s2.iloc[6, 0] = "Analytical column"
+    s2.iloc[6, 1] = "ACQUITY BEH C18"
+    s2.iloc[9, 0] = "Column temperature (C)"
+    s2.iloc[9, 1] = 40
+    s2.iloc[11, 0] = "Mobile phase A"
+    s2.iloc[11, 1] = "Water with 0.1% formic acid"
+    s2.iloc[12, 0] = "Mobile phase B"
+    s2.iloc[12, 1] = "Acetonitrile with 0.1% formic acid"
+    s2.iloc[14, 1] = 0
+    s2.iloc[14, 2] = 0.3
+    s2.iloc[14, 3] = 5
+    s2.iloc[15, 1] = 5
+    s2.iloc[15, 2] = 0.3
+    s2.iloc[15, 3] = 95
+
+    s3 = pd.DataFrame(
+        [
+            {
+                "MCMRT\nNumber": 1,
+                "Compound \nName": "Caffeine",
+                "Isomeric SMILES": "Cn1cnc2c1c(=O)n(C)c(=O)n2C",
+                "InChI": "InChI=1S/C8H10N4O2",
+                "ESI polarity": "Positive",
+            },
+            {
+                "MCMRT\nNumber": 2,
+                "Compound \nName": "Aspirin",
+                "Isomeric SMILES": "CC(=O)Oc1ccccc1C(=O)O",
+                "InChI": "InChI=1S/C9H8O4",
+                "ESI polarity": "Negative",
+            },
+        ]
+    )
+    s4 = pd.DataFrame(
+        [
+            {"Number": 1, "Compound Name": "Caffeine", "CM 01\nC1_A1B1_10min": 1.25},
+            {"Number": 2, "Compound Name": "Aspirin", "CM 01\nC1_A1B1_10min": 3.45},
+        ]
+    )
+    with pd.ExcelWriter(workbook) as writer:
+        pd.DataFrame().to_excel(writer, sheet_name="S1", index=False)
+        s2.to_excel(writer, sheet_name="S2", index=False, header=False)
+        s3.to_excel(writer, sheet_name="S3", index=False)
+        s4.to_excel(writer, sheet_name="S4", index=False)
+
+    normalized = normalize_mcmrt_workbook(workbook)
+
+    assert len(normalized) == 2
+    assert set(normalized["source_dataset"]) == {"MCMRT:CM 01"}
+    assert normalized.loc[0, "column_chemistry"] == "C18"
+    assert normalized.loc[0, "initial_organic_pct"] == 5
+    assert normalized.loc[0, "final_organic_pct"] == 95
+    assert "dataset=https://doi.org/10.57760/sciencedb.15823" in normalized.loc[0, "notes"]
 
 
 def test_assemble_dataset_accepts_additional_processed_source(tmp_path):

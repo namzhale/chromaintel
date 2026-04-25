@@ -28,6 +28,12 @@ REPORT_BASE = "https://raw.githubusercontent.com/michaelwitting/RepoRT/master/pr
 REPORT_API_CONTENTS = "https://api.github.com/repos/michaelwitting/RepoRT/contents/processed_data"
 REPORT_DATASET_ID = "0001"
 MINIMAL_PUBLIC_RT_COLUMNS = {"compound_name", "rt_min"}
+MCMRT_SUPPLEMENT_URL = (
+    "https://static-content.springer.com/esm/art%3A10.1038%2Fs41597-024-03780-5/"
+    "MediaObjects/41597_2024_3780_MOESM1_ESM.xlsx"
+)
+MCMRT_ARTICLE_URL = "https://www.nature.com/articles/s41597-024-03780-5"
+MCMRT_DATASET_DOI = "https://doi.org/10.57760/sciencedb.15823"
 
 REQUIRED_MANIFEST_FIELDS = {
     "source_name",
@@ -194,6 +200,117 @@ def import_local_public_export(
     return output_path
 
 
+def fetch_mcmrt_supplement(
+    rows: int | None = None,
+    raw_dir: Path = RAW_DIR,
+    processed_dir: Path = PROCESSED_DIR,
+    output_name: str = "mcmrt_supplement",
+    local_xlsx: str | Path | None = None,
+) -> Path:
+    """Fetch or load the MCMRT supplementary workbook and normalize its 30-method RT matrix."""
+
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    processed_dir.mkdir(parents=True, exist_ok=True)
+    workbook_path = Path(local_xlsx) if local_xlsx else raw_dir / "mcmrt_supplement.xlsx"
+    if local_xlsx is None or not workbook_path.exists():
+        content = urlopen(MCMRT_SUPPLEMENT_URL, timeout=60).read()
+        workbook_path.write_bytes(content)
+
+    normalized = normalize_mcmrt_workbook(workbook_path, rows=rows)
+    output_path = processed_dir / f"external_{output_name}.csv"
+    normalized.to_csv(output_path, index=False)
+    print(f"Normalized MCMRT supplement to {len(normalized)} rows from {workbook_path}")
+    return output_path
+
+
+def normalize_mcmrt_workbook(path: str | Path, rows: int | None = None) -> pd.DataFrame:
+    """Melt the MCMRT supplementary XLSX into the canonical nullable schema."""
+
+    workbook = Path(path)
+    compounds = pd.read_excel(workbook, sheet_name="S3")
+    methods_raw = pd.read_excel(workbook, sheet_name="S2", header=None)
+    rt_matrix = pd.read_excel(workbook, sheet_name="S4")
+    method_metadata = _mcmrt_method_metadata(methods_raw)
+
+    compound_columns = {
+        _clean_header(column): column for column in compounds.columns
+    }
+    compounds = compounds.rename(
+        columns={
+            compound_columns.get("MCMRT Number", "MCMRT\nNumber"): "mcmrt_number",
+            compound_columns.get("Compound Name", "Compound \nName"): "compound_name",
+            compound_columns.get("Isomeric SMILES", "Isomeric SMILES"): "smiles",
+            compound_columns.get("InChI", "InChI"): "inchi",
+            compound_columns.get("ESI polarity", "ESI polarity"): "ion_mode",
+        }
+    )
+    rt_matrix = rt_matrix.rename(columns={"Number": "mcmrt_number", "Compound Name": "compound_name"})
+
+    rows_out: list[dict[str, Any]] = []
+    rt_columns = [column for column in rt_matrix.columns if str(column).startswith("CM ")]
+    for _, rt_row in rt_matrix.iterrows():
+        compound = compounds.loc[compounds["mcmrt_number"].eq(rt_row["mcmrt_number"])]
+        if compound.empty:
+            continue
+        compound_row = compound.iloc[0]
+        for column in rt_columns:
+            rt_value = pd.to_numeric(rt_row[column], errors="coerce")
+            if pd.isna(rt_value):
+                continue
+            method_code, method_name = _mcmrt_method_parts(str(column))
+            method = method_metadata.get(method_code, {})
+            rows_out.append(
+                {
+                    "compound_name": compound_row.get("compound_name", rt_row["compound_name"]),
+                    "smiles": _clean_text(compound_row.get("smiles")),
+                    "canonical_smiles": _clean_text(compound_row.get("smiles")),
+                    "inchikey": pd.NA,
+                    "source_dataset": f"MCMRT:{method_code}",
+                    "source_record_id": f"{int(rt_row['mcmrt_number'])}:{method_code}",
+                    "column_name": method.get("column_name"),
+                    "column_chemistry": _column_chemistry(method.get("column_name"), pd.NA),
+                    "stationary_phase_type": "reversed phase",
+                    "mobile_phase_a": method.get("mobile_phase_a"),
+                    "mobile_phase_b": method.get("mobile_phase_b"),
+                    "ph": pd.NA,
+                    "gradient_profile": method.get("gradient_profile"),
+                    "initial_organic_pct": method.get("initial_organic_pct"),
+                    "final_organic_pct": method.get("final_organic_pct"),
+                    "gradient_duration_min": method.get("gradient_duration_min"),
+                    "total_runtime_min": method.get("total_runtime_min"),
+                    "temperature_c": method.get("temperature_c"),
+                    "flow_ml_min": method.get("flow_ml_min"),
+                    "injection_ul": pd.NA,
+                    "ion_mode": compound_row.get("ion_mode", "unknown"),
+                    "precursor_mz": pd.NA,
+                    "product_mz": pd.NA,
+                    "rt_min": rt_value,
+                    "peak_area": pd.NA,
+                    "peak_height": pd.NA,
+                    "sn_ratio": pd.NA,
+                    "tailing_factor": pd.NA,
+                    "asymmetry": pd.NA,
+                    "resolution": pd.NA,
+                    "matrix": "reference",
+                    "success_flag": True,
+                    "quality_score": pd.NA,
+                    "notes": (
+                        "MCMRT supplementary workbook import; "
+                        f"article={MCMRT_ARTICLE_URL}; dataset={MCMRT_DATASET_DOI}; "
+                        f"supplement={MCMRT_SUPPLEMENT_URL}; method={method_code}; "
+                        f"lc_method_name={method.get('lc_method_name', method_name)}; "
+                        "public source, peak quality/MS transitions not provided"
+                    ),
+                }
+            )
+
+    frame = pd.DataFrame(rows_out).head(rows) if rows is not None else pd.DataFrame(rows_out)
+    frame = frame.reindex(columns=CANONICAL_DATASET_COLUMNS)
+    frame = normalize_source_frame(frame, source_dataset="MCMRT")
+    frame["missing_fields_count"] = frame[CANONICAL_DATASET_COLUMNS[:-1]].isna().sum(axis=1)
+    return frame
+
+
 def normalize_report(files: RepoRTFiles, dataset_id: str, rows: int) -> pd.DataFrame:
     metadata = files.metadata.iloc[0]
     info = files.info.iloc[0]
@@ -253,6 +370,83 @@ def normalize_report(files: RepoRTFiles, dataset_id: str, rows: int) -> pd.DataF
     frame = frame.reindex(columns=CANONICAL_DATASET_COLUMNS)
     frame["missing_fields_count"] = frame[CANONICAL_DATASET_COLUMNS[:-1]].isna().sum(axis=1)
     return frame
+
+
+def _mcmrt_method_metadata(methods_raw: pd.DataFrame) -> dict[str, dict[str, Any]]:
+    methods: dict[str, dict[str, Any]] = {}
+    method_columns = [
+        column
+        for column in range(1, methods_raw.shape[1])
+        if str(methods_raw.iat[0, column]).strip().startswith("CM ")
+    ]
+    for column in method_columns:
+        method_code = str(methods_raw.iat[0, column]).strip()
+        gradient = _mcmrt_gradient(methods_raw, column)
+        methods[method_code] = {
+            "lc_method_name": _clean_text(methods_raw.iat[1, column]),
+            "column_name": _clean_text(methods_raw.iat[6, column]),
+            "temperature_c": _num(methods_raw.iat[9, column]) or pd.NA,
+            "mobile_phase_a": _clean_text(methods_raw.iat[11, column]),
+            "mobile_phase_b": _clean_text(methods_raw.iat[12, column]),
+            "flow_ml_min": gradient.get("flow_ml_min"),
+            "gradient_profile": gradient.get("gradient_profile"),
+            "initial_organic_pct": gradient.get("initial_organic_pct"),
+            "final_organic_pct": gradient.get("final_organic_pct"),
+            "gradient_duration_min": gradient.get("gradient_duration_min"),
+            "total_runtime_min": gradient.get("total_runtime_min"),
+        }
+    return methods
+
+
+def _mcmrt_gradient(methods_raw: pd.DataFrame, column: int) -> dict[str, Any]:
+    steps = []
+    for row_index in range(14, min(21, len(methods_raw))):
+        time_min = pd.to_numeric(methods_raw.iat[row_index, column], errors="coerce")
+        flow = pd.to_numeric(methods_raw.iat[row_index, column + 1], errors="coerce") if column + 1 < methods_raw.shape[1] else pd.NA
+        percent_b = pd.to_numeric(methods_raw.iat[row_index, column + 2], errors="coerce") if column + 2 < methods_raw.shape[1] else pd.NA
+        if pd.isna(time_min) or pd.isna(percent_b):
+            continue
+        steps.append({"time": float(time_min), "flow": float(flow) if pd.notna(flow) else pd.NA, "b": float(percent_b)})
+    if not steps:
+        return {}
+
+    b_values = [step["b"] for step in steps]
+    max_b = max(b_values)
+    max_b_time = next(step["time"] for step in steps if step["b"] == max_b)
+    flow_values = [step["flow"] for step in steps if pd.notna(step["flow"])]
+    return {
+        "gradient_profile": "; ".join(
+            f"{step['time']:g}min B{step['b']:g} flow{step['flow'] if pd.notna(step['flow']) else 'NA'}"
+            for step in steps
+        ),
+        "flow_ml_min": float(flow_values[0]) if flow_values else pd.NA,
+        "initial_organic_pct": float(b_values[0]),
+        "final_organic_pct": float(max_b),
+        "gradient_duration_min": float(max_b_time),
+        "total_runtime_min": float(max(step["time"] for step in steps)),
+    }
+
+
+def _mcmrt_method_parts(header: str) -> tuple[str, str]:
+    parts = []
+    for part in header.split("\n"):
+        cleaned = _clean_text(part)
+        if pd.notna(cleaned):
+            parts.append(str(cleaned))
+    method_code = parts[0] if parts else header.strip()
+    method_name = parts[1] if len(parts) > 1 else method_code
+    return method_code, method_name
+
+
+def _clean_header(value: object) -> str:
+    return " ".join(str(value).replace("\n", " ").split())
+
+
+def _clean_text(value: object) -> object:
+    if pd.isna(value):
+        return pd.NA
+    text = " ".join(str(value).replace("\xa0", " ").replace("\n", " ").split())
+    return text if text else pd.NA
 
 
 def _download_report_files(dataset_id: str, raw_dir: Path) -> RepoRTFiles:
@@ -394,7 +588,9 @@ def _gradient_duration(gradient: pd.DataFrame) -> float:
 
 
 def _column_chemistry(column_name: object, usp_code: object) -> object:
-    text = f"{column_name or ''} {usp_code or ''}".upper()
+    column_text = "" if pd.isna(column_name) else str(column_name)
+    usp_text = "" if pd.isna(usp_code) else str(usp_code)
+    text = f"{column_text} {usp_text}".upper()
     if "T3" in text or "C18" in text or "L1" in text:
         return "C18"
     if "HILIC" in text or "AMIDE" in text:
@@ -426,6 +622,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--bulk-report", action="store_true", help="Fetch multiple RepoRT processed datasets.")
     parser.add_argument("--target-rows", type=int, default=5000, help="Target rows for --bulk-report.")
     parser.add_argument("--max-datasets", type=int, default=80, help="Maximum RepoRT datasets to attempt for --bulk-report.")
+    parser.add_argument("--mcmrt", action="store_true", help="Fetch and normalize the MCMRT supplementary RT matrix.")
+    parser.add_argument("--mcmrt-local-xlsx", type=Path, help="Use a local MCMRT supplementary XLSX instead of downloading.")
+    parser.add_argument("--mcmrt-rows", type=int, help="Optional row limit for the normalized MCMRT matrix.")
     parser.add_argument(
         "--local-export",
         type=Path,
@@ -455,7 +654,13 @@ def main() -> int:
                 f"{source['ingestion_mode']} | {source['url']}"
             )
         return 0
-    if args.bulk_report:
+    if args.mcmrt or args.mcmrt_local_xlsx:
+        output = fetch_mcmrt_supplement(
+            rows=args.mcmrt_rows,
+            output_name=args.output_name or "mcmrt_supplement",
+            local_xlsx=args.mcmrt_local_xlsx,
+        )
+    elif args.bulk_report:
         output = fetch_report_bulk(
             target_rows=args.target_rows,
             max_datasets=args.max_datasets,

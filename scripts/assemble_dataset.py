@@ -21,6 +21,7 @@ DEFAULT_SOURCE = PROJECT_ROOT / "data" / "mock_training_records.csv"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data" / "processed"
 DEFAULT_TEMPLATES_DIR = PROJECT_ROOT / "data" / "templates"
 DEFAULT_BULK_SOURCE = DEFAULT_OUTPUT_DIR / "external_report_bulk_5k.csv"
+DEFAULT_MCMRT_SOURCE = DEFAULT_OUTPUT_DIR / "external_mcmrt_supplement.csv"
 
 
 @dataclass(frozen=True)
@@ -144,8 +145,11 @@ def main(argv: list[str] | None = None) -> int:
 def _default_additional_sources(output_dir: Path, additional_sources: list[str | Path] | None) -> list[str | Path]:
     if additional_sources is not None:
         return additional_sources
-    default_bulk = output_dir / DEFAULT_BULK_SOURCE.name
-    return [default_bulk] if default_bulk.exists() else []
+    defaults = []
+    for candidate in [output_dir / DEFAULT_BULK_SOURCE.name, output_dir / DEFAULT_MCMRT_SOURCE.name]:
+        if candidate.exists():
+            defaults.append(candidate)
+    return defaults
 
 
 if __name__ == "__main__":

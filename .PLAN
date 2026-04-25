@@ -27,8 +27,8 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 
 ## Milestone C: Modeling And SOTA Path
 
-- [ ] Add grouped validation when enough rows exist; group by `inchikey`, `source_dataset`, and method family.
-- [ ] Add optional CatBoost/LightGBM/XGBoost support with graceful skip when packages are absent.
+- [x] Add grouped validation when enough rows exist; group by `inchikey`, `source_dataset`, and method family.
+- [x] Add optional CatBoost/XGBoost support with graceful skip when packages are absent; LightGBM remains a future optional backend.
 - [ ] Add Morgan fingerprint feature option in training CLI and compare with descriptor-only training.
 - [x] Add applicability-domain metadata to the persisted bundle and use it in `ForwardPredictor._out_of_domain`.
 - [ ] Add conformal interval reporting by source/matrix/column family once calibration rows exist.

@@ -209,6 +209,8 @@ def _dedupe_key(row: pd.Series) -> tuple:
         row.get("mobile_phase_a"),
         row.get("mobile_phase_b"),
         row.get("ph"),
+        row.get("gradient_profile"),
+        row.get("total_runtime_min"),
         rt,
     )
 

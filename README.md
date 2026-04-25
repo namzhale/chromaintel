@@ -8,7 +8,7 @@ Practical local MVP for bioanalytical small-molecule LC-MS/MS method development
 - RDKit descriptor pipeline: MW, logP, TPSA, HBD/HBA, rotatable bonds, aromatic rings, charge, heavy atoms, and Morgan fingerprints.
 - Offline-first adapters for internal lab templates, METLIN SMRT, RepoRT, ChEMBL, MassBank, and MoNA.
 - PubChem enrichment client for name or CID lookup.
-- Multi-model CPU training for RT and provisional quality using Ridge, RandomForest, ExtraTrees, and HistGradientBoosting.
+- Multi-model CPU training for RT and provisional quality using Ridge, RandomForest, ExtraTrees, HistGradientBoosting, XGBoost, and CatBoost.
 - Heuristic fallback predictions so the GUI remains useful before model artifacts exist.
 - Recommendation engine that generates candidate methods and ranks them by RT fit, quality, and runtime.
 - Streamlit pages: Dashboard, Compound lookup, Forward prediction, Method recommendation, Dataset browser, Model evaluation, Admin/import.
@@ -50,13 +50,15 @@ Train the multi-model forward pipeline and generate evaluation outputs:
 python scripts/train_models.py
 ```
 
-This trains Ridge, RandomForest, ExtraTrees, and HistGradientBoosting models for RT and provisional peak quality, then writes:
+This trains Ridge, RandomForest, ExtraTrees, HistGradientBoosting, XGBoost, and CatBoost models for RT and provisional peak quality. Model selection uses GroupKFold by compound identity, then writes:
 
 - `data/processed/models/trained_forward_bundle.joblib`
 - `reports/model_training_summary.md`
 - `reports/test_predictions.csv`
 - `reports/feature_importance.csv`
 - `reports/source_metrics.csv`
+- `reports/cv_metrics.csv`
+- `reports/source_holdout_metrics.csv`
 - `reports/sota_model_experiments.md`
 - reproducible Plotly HTML plots under `data/processed/plots/`
 
@@ -129,7 +131,9 @@ python scripts/fetch_public_datasets.py --list-sources
 
 python scripts/fetch_public_datasets.py --bulk-report --target-rows 5000 --max-datasets 80 --output-name report_bulk_5k
 
-python scripts/assemble_dataset.py --additional-source data\processed\external_report_bulk_5k.csv
+python scripts/fetch_public_datasets.py --mcmrt --output-name mcmrt_supplement
+
+python scripts/assemble_dataset.py
 
 python scripts/fetch_public_datasets.py `
   --local-export data\raw\public_sources\some_rt_export.tsv `
@@ -147,11 +151,13 @@ python scripts/extract_lcms_entities.py --stdin-text "Caffeine on C18 column, rt
 
 The literature parser is offline-first. The `--use-llm` flag is reserved for a future opt-in extractor and does not call an LLM in this MVP.
 
-Current checked-in processed training matrix after bulk RepoRT expansion:
+Current checked-in processed training matrix after RepoRT plus MCMRT expansion:
 
-- `data/processed/master_dataset.csv`: 4,978 rows, 3,681 compounds
-- `data/processed/model_matrix.csv`: 4,978 rows x 41 columns
+- `data/processed/external_mcmrt_supplement.csv`: 10,073 MCMRT RT rows from 30 reversed-phase methods
+- `data/processed/master_dataset.csv`: 15,052 rows, 3,945 compounds
+- `data/processed/model_matrix.csv`: 15,052 rows x 41 columns
 - selected RT model after retraining: `extra_trees`
+- validation: GroupKFold by `inchikey` plus source-family holdout for RepoRT and MCMRT
 
 ## Internal Lab Onboarding
 
@@ -177,6 +183,8 @@ The generated report at `reports/model_training_summary.md` contains:
 - tested model families
 - best RT and quality models
 - MAE, RMSE, and R2 metrics
+- grouped cross-validation metrics
+- source-family holdout metrics for new-source transfer checks
 - source-wise performance
 - split-conformal q90 RT uncertainty proxy
 - applicability-domain flags for held-out predictions
