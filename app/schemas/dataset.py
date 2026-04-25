@@ -34,6 +34,8 @@ CANONICAL_DATASET_COLUMNS = [
     "tailing_factor",
     "asymmetry",
     "resolution",
+    "peak_width_base_min",
+    "peak_width_half_height_min",
     "matrix",
     "success_flag",
     "quality_score",
@@ -71,5 +73,7 @@ NUMERIC_CANONICAL_COLUMNS = [
     "tailing_factor",
     "asymmetry",
     "resolution",
+    "peak_width_base_min",
+    "peak_width_half_height_min",
     "quality_score",
 ]

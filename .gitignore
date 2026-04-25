@@ -11,4 +11,6 @@ data/raw/public_sources/retina_dataset*.csv
 data/processed/external_retina_hf*.csv
 data/processed/external_metlin_smrt_figshare*.csv
 data/processed/external_kaggle_metlin_descriptors*.csv
+data/processed/dl/
+reports/benchmarks/dl_dataset_prep_report.json
 .venv/

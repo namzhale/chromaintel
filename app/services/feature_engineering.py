@@ -51,6 +51,8 @@ TARGET_COLUMNS = [
     "asymmetry",
     "tailing_factor",
     "resolution",
+    "peak_width_base_min",
+    "peak_width_half_height_min",
     "peak_area",
     "peak_height",
     "sn_ratio",
@@ -74,22 +76,16 @@ def build_model_matrix(master: pd.DataFrame, include_fingerprints: bool = False)
 
     rows: list[dict[str, Any]] = []
     calc = DescriptorCalculator()
+    descriptor_cache: dict[str, dict[str, Any]] = {}
     for _, source in master.iterrows():
         row = source.to_dict()
         smiles = row.get("canonical_smiles") or row.get("smiles")
         descriptor_values: dict[str, Any] = {}
         if pd.notna(smiles) and str(smiles).strip():
-            try:
-                descriptors = calc.from_smiles(str(smiles))
-                descriptor_values = {key: descriptors[key] for key in COMPOUND_FEATURES}
-                if include_fingerprints:
-                    descriptor_values.update(
-                        {f"morgan_{idx}": bit for idx, bit in enumerate(descriptors["morgan_fp"])}
-                    )
-            except InvalidStructureError:
-                descriptor_values = {key: np.nan for key in COMPOUND_FEATURES}
-                if include_fingerprints:
-                    descriptor_values.update(_empty_morgan_fingerprint())
+            cache_key = f"{smiles}|fp={include_fingerprints}"
+            if cache_key not in descriptor_cache:
+                descriptor_cache[cache_key] = _descriptor_values(calc, str(smiles), include_fingerprints)
+            descriptor_values = descriptor_cache[cache_key]
         else:
             descriptor_values = {key: np.nan for key in COMPOUND_FEATURES}
             if include_fingerprints:
@@ -106,6 +102,24 @@ def build_model_matrix(master: pd.DataFrame, include_fingerprints: bool = False)
         rows.append(feature_row)
 
     return pd.DataFrame(rows)
+
+
+def _descriptor_values(
+    calc: DescriptorCalculator,
+    smiles: str,
+    include_fingerprints: bool,
+) -> dict[str, Any]:
+    try:
+        descriptors = calc.from_smiles(smiles)
+        values = {key: descriptors[key] for key in COMPOUND_FEATURES}
+        if include_fingerprints:
+            values.update({f"morgan_{idx}": bit for idx, bit in enumerate(descriptors["morgan_fp"])})
+        return values
+    except InvalidStructureError:
+        values = {key: np.nan for key in COMPOUND_FEATURES}
+        if include_fingerprints:
+            values.update(_empty_morgan_fingerprint())
+        return values
 
 
 def build_lc_condition_features(row: dict[str, Any]) -> dict[str, Any]:

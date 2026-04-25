@@ -62,6 +62,8 @@ CANONICAL_REGISTRY_FIELDS: dict[str, tuple[str, ...]] = {
         "tailing_factor",
         "asymmetry",
         "resolution",
+        "peak_width_base_min",
+        "peak_width_half_height_min",
         "quality_score",
     ),
     "provenance": (
@@ -105,7 +107,19 @@ SOURCE_QUALITY_WEIGHTS: dict[str, tuple[float, tuple[str, ...]]] = {
     "lc_metadata": (0.20, ("column_name", "mobile_phase_a", "mobile_phase_b", "gradient_profile")),
     "ms_metadata": (0.15, ("ion_mode", "precursor_mz", "product_mz")),
     "sample_context": (0.10, ("matrix",)),
-    "peak_metrics": (0.10, ("peak_area", "peak_height", "sn_ratio", "tailing_factor", "asymmetry", "resolution")),
+    "peak_metrics": (
+        0.10,
+        (
+            "peak_area",
+            "peak_height",
+            "sn_ratio",
+            "tailing_factor",
+            "asymmetry",
+            "resolution",
+            "peak_width_base_min",
+            "peak_width_half_height_min",
+        ),
+    ),
 }
 
 

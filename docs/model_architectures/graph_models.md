@@ -15,6 +15,8 @@ This note documents optional molecular graph model support for ChromaIntel. The 
 - `graph_skip_report(config)` for serializable graceful-skip metadata.
 - `tiny_torch_cpu_smoke()` for a one-layer CPU forward pass only when PyTorch is already installed.
 
+`scripts/prepare_dl_datasets.py` now provides the dependency-light data view for future graph experiments. It writes `data/processed/dl/graph_manifest.csv` with canonical structure identifiers, LC/MS method fields, `rt_min`, deterministic or source-provided split labels, and graph-readiness metadata. The manifest is intentionally a CSV contract, not a PyTorch/PyG/DGL dataset object.
+
 ## Current Backend Status
 
 Observed in the local `.venv` on 2026-04-25:
@@ -46,6 +48,17 @@ The RDKit featurizer converts a molecule into:
 - `edge_features`: bond descriptors including single/double/triple/aromatic flags, conjugation, and ring membership.
 
 For ethanol (`CCO`), the smoke path produces 3 atoms and 4 directed edges.
+
+## DL Manifest Contract
+
+The graph manifest contains:
+
+- compound identity: `canonical_smiles`, `inchikey`, `source_dataset`, `source_record_id`, `compound_name`;
+- method context: column, mobile phase, gradient, temperature, flow, injection, ion mode, precursor/product m/z, matrix;
+- label/split fields: `rt_min`, `split`;
+- graph metadata: `graph_backend`, `graph_training_enabled`, `graph_dependency_status`.
+
+SMILES validity is checked through the existing RDKit-backed descriptor utility. Invalid or missing SMILES rows are filtered before writing the manifest. `--max-rows` caps rows before canonicalization so smoke runs remain fast on large processed source files.
 
 ## Intentional Limits
 

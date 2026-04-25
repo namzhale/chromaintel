@@ -51,6 +51,7 @@ class ForwardPredictor:
             domain_check = self._heuristic_domain_check(features)
 
         risks = self._risk_components(pred["quality_score"], features, ms_settings)
+        peak_metrics = self._peak_metric_estimates(pred, features, risks)
         return {
             "predicted_rt_min": round(pred["predicted_rt_min"], 2),
             "quality_score": round(pred["quality_score"], 3),
@@ -60,6 +61,7 @@ class ForwardPredictor:
             "out_of_domain_reasons": domain_check["reasons"],
             "out_of_domain_method": domain_check["method"],
             "risks": risks,
+            "peak_metrics": peak_metrics,
             "feature_summary": {
                 "model": model_note,
                 "logp": round(features.get("logp", 0.0), 2),
@@ -101,6 +103,27 @@ class ForwardPredictor:
             "asymmetry": round(float(np.clip(0.55 - quality_score * 0.35 + max(flow - 0.6, 0), 0, 1)), 3),
             "low_intensity": round(float(np.clip(0.45 - quality_score * 0.25 + (0 if ion_mode_known else 0.12), 0, 1)), 3),
             "poor_resolution": round(float(np.clip(0.5 - quality_score * 0.3 + max(slope - 20, 0) / 50, 0, 1)), 3),
+        }
+
+    @staticmethod
+    def _peak_metric_estimates(
+        pred: dict[str, float],
+        features: dict[str, Any],
+        risks: dict[str, float],
+    ) -> dict[str, float]:
+        """Return provisional peak-shape estimates until measured labels exist."""
+
+        rt = max(float(pred["predicted_rt_min"]), 0.1)
+        slope = max(float(features.get("gradient_slope_percent_b_min", 0.0)), 0.0)
+        quality = float(pred["quality_score"])
+        width_half_height = np.clip(0.025 * rt + 0.003 * slope + (1.0 - quality) * 0.08, 0.03, 1.2)
+        width_base = width_half_height * 1.7
+        asymmetry_factor = np.clip(1.0 + risks.get("asymmetry", 0.0) * 2.0, 0.8, 3.0)
+        return {
+            "asymmetry_factor": round(float(asymmetry_factor), 3),
+            "peak_width_base_min": round(float(width_base), 3),
+            "peak_width_half_height_min": round(float(width_half_height), 3),
+            "label_source": "provisional_estimate",
         }
 
     @staticmethod

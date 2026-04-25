@@ -86,6 +86,8 @@ INTERNAL_TEMPLATE_COLUMNS = [
     "tailing_factor",
     "asymmetry",
     "resolution",
+    "peak_width_base_min",
+    "peak_width_half_height_min",
     "success_flag",
     "notes",
 ]
@@ -124,6 +126,8 @@ DATA_DICTIONARY = {
     "tailing_factor": "USP tailing factor where available.",
     "asymmetry": "Peak asymmetry factor where available.",
     "resolution": "Resolution to nearest critical neighbor.",
+    "peak_width_base_min": "Peak width at baseline in minutes where available.",
+    "peak_width_half_height_min": "Peak width at half height in minutes where available.",
     "success_flag": "Whether the run/method met acceptance expectations.",
     "notes": "Free text comments and caveats.",
 }

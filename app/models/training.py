@@ -149,6 +149,7 @@ def train_forward_models(
     report_dir: str | Path = "reports",
     plots_dir: str | Path = "data/processed/plots",
     feature_set: str = "core",
+    quick: bool = False,
 ) -> TrainingSummary:
     """Train linear, RandomForest, and HistGradientBoosting models for RT and quality."""
 
@@ -165,12 +166,20 @@ def train_forward_models(
 
     group_column = _group_column(usable)
     train, validation, test = _grouped_train_validation_test_split(usable, group_column)
-    models = _candidate_models(categorical, numeric)
+    models = _candidate_models(categorical, numeric, quick=quick)
+    diagnostic_frame = _diagnostic_frame(usable, group_column, quick=quick)
 
     rt_results = _fit_and_score(models, train, validation, test, feature_columns, "rt_min")
     quality_results = _fit_and_score(models, train, validation, test, feature_columns, "quality_score")
-    rt_cv_results = _group_kfold_scores(models, usable, feature_columns, "rt_min", group_column)
-    quality_cv_results = _group_kfold_scores(models, usable, feature_columns, "quality_score", group_column)
+    rt_cv_results = _group_kfold_scores(models, diagnostic_frame, feature_columns, "rt_min", group_column, n_splits=3 if quick else 5)
+    quality_cv_results = _group_kfold_scores(
+        models,
+        diagnostic_frame,
+        feature_columns,
+        "quality_score",
+        group_column,
+        n_splits=3 if quick else 5,
+    )
 
     best_rt_name = min(rt_cv_results, key=lambda name: rt_cv_results[name]["mae_mean"])
     best_quality_name = min(quality_cv_results, key=lambda name: quality_cv_results[name]["mae_mean"])
@@ -202,14 +211,16 @@ def train_forward_models(
             "residual_std_min": residual_std,
         }
     }
-    feature_importance = _permutation_importance(rt_model, test, feature_columns)
+    importance_frame = _diagnostic_frame(test, group_column, quick=quick, max_rows=4000)
+    feature_importance = _permutation_importance(rt_model, importance_frame, feature_columns, n_repeats=2 if quick else 8)
     applicability_domain = _applicability_domain_metadata(train, numeric, categorical)
-    cv_metrics = _cv_metrics_frame({"rt_min": rt_cv_results, "quality_score": quality_cv_results}, group_column, usable)
-    source_holdout_metrics = _source_family_holdout_metrics(models, usable, feature_columns, ["rt_min", "quality_score"], group_column)
-    method_holdout_metrics = _method_holdout_metrics(models, usable, feature_columns, ["rt_min", "quality_score"], group_column)
+    cv_metrics = _cv_metrics_frame({"rt_min": rt_cv_results, "quality_score": quality_cv_results}, group_column, diagnostic_frame)
+    holdout_frame = diagnostic_frame if quick else usable
+    source_holdout_metrics = _source_family_holdout_metrics(models, holdout_frame, feature_columns, ["rt_min", "quality_score"], group_column)
+    method_holdout_metrics = _method_holdout_metrics(models, holdout_frame, feature_columns, ["rt_min", "quality_score"], group_column)
     column_family_holdout_metrics = _column_family_holdout_metrics(
         models,
-        usable,
+        holdout_frame,
         feature_columns,
         ["rt_min", "quality_score"],
         group_column,
@@ -259,6 +270,8 @@ def train_forward_models(
         "uncertainty_metadata": uncertainty_metadata,
         "applicability_domain": applicability_domain,
         "feature_set": feature_set,
+        "quick_training": quick,
+        "diagnostic_rows": int(len(diagnostic_frame)),
         "n_morgan_features": len(groups.fingerprints),
         "feature_group_counts": {
             "compound": len(groups.compound),
@@ -345,6 +358,33 @@ def _groups_for_split(frame: pd.DataFrame, group_column: str) -> pd.Series:
         else:
             labels.append(str(value))
     return pd.Series(labels, index=frame.index, dtype="object")
+
+
+def _diagnostic_frame(
+    frame: pd.DataFrame,
+    group_column: str,
+    *,
+    quick: bool,
+    max_rows: int = 30000,
+) -> pd.DataFrame:
+    """Return a deterministic diagnostics subset while preserving source coverage."""
+
+    if not quick or len(frame) <= max_rows:
+        return frame
+    if "source_dataset" not in frame:
+        sampled = frame.sample(max_rows, random_state=42)
+    else:
+        source_count = max(int(frame["source_dataset"].nunique(dropna=False)), 1)
+        per_source = max(max_rows // source_count, 1)
+        sampled = frame.groupby("source_dataset", group_keys=False, dropna=False).apply(
+            lambda group: group.sample(min(len(group), per_source), random_state=42)
+        )
+        if len(sampled) > max_rows:
+            sampled = sampled.sample(max_rows, random_state=42)
+    groups = _groups_for_split(sampled, group_column)
+    if groups.nunique() < 2:
+        return frame.sample(min(len(frame), max_rows), random_state=42).reset_index(drop=True)
+    return sampled.reset_index(drop=True)
 
 
 def _grouped_train_validation_test_split(
@@ -1025,7 +1065,10 @@ def generate_training_outputs(
     return report
 
 
-def _candidate_models(categorical: list[str], numeric: list[str]) -> dict[str, Pipeline]:
+def _candidate_models(categorical: list[str], numeric: list[str], quick: bool = False) -> dict[str, Pipeline]:
+    rf_estimators = 48 if quick else 180
+    et_estimators = 64 if quick else 240
+    hgb_iter = 60 if quick else 120
     models = {
         "linear_ridge": Pipeline(
             [
@@ -1036,23 +1079,24 @@ def _candidate_models(categorical: list[str], numeric: list[str]) -> dict[str, P
         "random_forest": Pipeline(
             [
                 ("prep", _preprocessor(categorical, numeric)),
-                ("model", RandomForestRegressor(n_estimators=180, random_state=42, min_samples_leaf=1)),
+                ("model", RandomForestRegressor(n_estimators=rf_estimators, random_state=42, min_samples_leaf=1)),
             ]
         ),
         "extra_trees": Pipeline(
             [
                 ("prep", _preprocessor(categorical, numeric)),
-                ("model", ExtraTreesRegressor(n_estimators=240, random_state=42, min_samples_leaf=1)),
+                ("model", ExtraTreesRegressor(n_estimators=et_estimators, random_state=42, min_samples_leaf=1)),
             ]
         ),
         "hist_gradient_boosting": Pipeline(
             [
                 ("prep", _preprocessor(categorical, numeric)),
-                ("model", HistGradientBoostingRegressor(random_state=42, max_iter=120)),
+                ("model", HistGradientBoostingRegressor(random_state=42, max_iter=hgb_iter)),
             ]
         ),
     }
-    models.update(_optional_boosting_models(categorical, numeric))
+    if not quick:
+        models.update(_optional_boosting_models(categorical, numeric))
     return models
 
 
@@ -1190,7 +1234,12 @@ def _metrics_payload(results: dict[str, dict[str, Any]]) -> dict[str, dict[str, 
     }
 
 
-def _permutation_importance(model: Pipeline, test: pd.DataFrame, feature_columns: list[str]) -> pd.DataFrame:
+def _permutation_importance(
+    model: Pipeline,
+    test: pd.DataFrame,
+    feature_columns: list[str],
+    n_repeats: int = 8,
+) -> pd.DataFrame:
     if len(test) < 2:
         frame = pd.DataFrame({"feature": feature_columns, "importance_mean": 0.0, "importance_std": 0.0})
         return _annotate_importance(frame)
@@ -1198,7 +1247,7 @@ def _permutation_importance(model: Pipeline, test: pd.DataFrame, feature_columns
         model,
         test[feature_columns],
         test["rt_min"],
-        n_repeats=8,
+        n_repeats=n_repeats,
         random_state=42,
         scoring="neg_mean_absolute_error",
     )

@@ -89,6 +89,11 @@ def _parser() -> argparse.ArgumentParser:
         default="core",
         help="Training feature set: core descriptors/LC/MS fields or core plus Morgan fingerprints.",
     )
+    parser.add_argument(
+        "--quick",
+        action="store_true",
+        help="Use reduced estimator counts and sampled diagnostics for large local training views.",
+    )
     return parser
 
 
@@ -114,6 +119,7 @@ def main(argv: list[str] | None = None) -> int:
             report_dir=args.report_dir,
             plots_dir=args.plots_dir,
             feature_set=args.feature_set,
+            quick=args.quick,
         )
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
@@ -132,6 +138,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Best RT model: {payload.get('best_rt_model')}")
     print(f"Best quality model: {payload.get('best_quality_model')}")
     print(f"Feature set: {args.feature_set}")
+    print(f"Quick mode: {args.quick}")
     print(f"Artifact: {Path(payload.get('artifact_path', args.artifact)).resolve()}")
     print(f"Report: {Path(payload.get('report_path', args.report_dir)).resolve()}")
     print(f"Feature count: {len(payload.get('feature_columns', []))}")

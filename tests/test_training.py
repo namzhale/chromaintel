@@ -251,3 +251,5 @@ def test_trained_predictor_uses_bundle_applicability_domain(tmp_path):
     assert result["out_of_domain"] is True
     assert result["out_of_domain_method"] == "training_feature_ranges"
     assert any("unseen category" in reason for reason in result["out_of_domain_reasons"])
+    assert result["peak_metrics"]["label_source"] == "provisional_estimate"
+    assert result["peak_metrics"]["peak_width_base_min"] > result["peak_metrics"]["peak_width_half_height_min"]

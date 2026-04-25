@@ -19,5 +19,17 @@
     "Acetonitrile"
   ],
   "gradient_end_times": [3.5, 5.0, 8.0],
-  "max_runtime_min": 12.0
+  "max_runtime_min": 12.0,
+  "optimization_hooks": {
+    "bayesian_optimization": {
+      "enabled": false,
+      "status": "roadmap",
+      "notes": "Future optional acquisition loop can score candidate batches without adding a hard dependency."
+    },
+    "active_learning": {
+      "enabled": false,
+      "status": "roadmap",
+      "notes": "Future hook for selecting high-uncertainty recommendations for lab confirmation."
+    }
+  }
 }

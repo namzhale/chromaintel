@@ -10,6 +10,7 @@ class PredictionResponse(BaseModel):
     quality_score: float = Field(ge=0, le=1)
     confidence: float = Field(ge=0, le=1)
     risks: dict[str, float]
+    peak_metrics: dict[str, Any] = Field(default_factory=dict)
     feature_summary: dict[str, Any]
     explanation: str
 
@@ -25,4 +26,8 @@ class RecommendationCandidate(BaseModel):
     score_components: dict[str, float] = Field(default_factory=dict)
     out_of_domain: bool = False
     out_of_domain_reasons: list[str] = Field(default_factory=list)
+    constraints: dict[str, Any] = Field(default_factory=dict)
+    reason_codes: list[str] = Field(default_factory=list)
+    forward_prediction: dict[str, Any] = Field(default_factory=dict)
+    nearest_known_methods: list[dict[str, Any]] = Field(default_factory=list)
     explanation: str
