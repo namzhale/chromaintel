@@ -20,7 +20,7 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 
 ## Milestone B: Internal Lab Onboarding Maturity
 
-- [ ] Add `docs/internal_lab_onboarding.md` with realistic BE workflow instructions.
+- [x] Add `docs/internal_lab_onboarding.md` with realistic BE workflow instructions.
 - [ ] Add template examples for accepted, failed, low intensity, poor resolution, and carryover cases.
 - [ ] Add validation for gradient consistency, ion mode vocabulary, matrix vocabulary, and required MS transition fields when ion mode is known.
 - [ ] Add an import preview report that summarizes missingness, invalid rows, and duplicate runs.
