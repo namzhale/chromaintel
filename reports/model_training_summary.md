@@ -4,7 +4,7 @@
 
 - Rows used: 4978
 - Compounds: 3681
-- Source distribution: {'RepoRT:0044': 592, 'RepoRT:0024': 533, 'RepoRT:0002': 413, 'RepoRT:0019': 364, 'RepoRT:0009': 364, 'RepoRT:0027': 302, 'RepoRT:0017': 197, 'RepoRT:0004': 174, 'RepoRT:0045': 147, 'RepoRT:0007': 147, 'RepoRT:0018': 140, 'RepoRT:0020': 116, 'RepoRT:0015': 102, 'RepoRT:0003': 82, 'RepoRT:0040': 78, 'RepoRT:0025': 77, 'RepoRT:0041': 75, 'RepoRT:0001': 73, 'RepoRT:0010': 73, 'RepoRT:0005': 66, 'RepoRT:0038': 57, 'RepoRT:0042': 54, 'RepoRT:0039': 53, 'RepoRT:0036': 51, 'RepoRT:0032': 49, 'RepoRT:0033': 48, 'RepoRT:0028': 47, 'RepoRT:0030': 46, 'RepoRT:0029': 46, 'RepoRT:0023': 45, 'RepoRT:0043': 43, 'RepoRT:0031': 43, 'RepoRT:0021': 41, 'RepoRT:0034': 35, 'RepoRT:0008': 33, 'RepoRT:0037': 29, 'RepoRT:0014': 27, 'RepoRT:0013': 26, 'RepoRT:0016': 26, 'RepoRT:0006': 25, 'RepoRT:0026': 17, 'RepoRT:0022': 9, 'internal_lab': 5, 'RepoRT': 5, 'METLIN_SMRT': 2, 'RepoRT:0029;RepoRT:0040': 1}
+- Source distribution: {'RepoRT:0044': 592, 'RepoRT:0024': 533, 'RepoRT:0002': 413, 'RepoRT:0009': 364, 'RepoRT:0019': 364, 'RepoRT:0027': 302, 'RepoRT:0017': 197, 'RepoRT:0004': 174, 'RepoRT:0007': 147, 'RepoRT:0045': 147, 'RepoRT:0018': 140, 'RepoRT:0020': 116, 'RepoRT:0015': 102, 'RepoRT:0003': 82, 'RepoRT:0040': 78, 'RepoRT:0025': 77, 'RepoRT:0041': 75, 'RepoRT:0010': 73, 'RepoRT:0001': 73, 'RepoRT:0005': 66, 'RepoRT:0038': 57, 'RepoRT:0042': 54, 'RepoRT:0039': 53, 'RepoRT:0036': 51, 'RepoRT:0032': 49, 'RepoRT:0033': 48, 'RepoRT:0028': 47, 'RepoRT:0030': 46, 'RepoRT:0029': 46, 'RepoRT:0023': 45, 'RepoRT:0031': 43, 'RepoRT:0043': 43, 'RepoRT:0021': 41, 'RepoRT:0034': 35, 'RepoRT:0008': 33, 'RepoRT:0037': 29, 'RepoRT:0014': 27, 'RepoRT:0016': 26, 'RepoRT:0013': 26, 'RepoRT:0006': 25, 'RepoRT:0026': 17, 'RepoRT:0022': 9, 'RepoRT': 5, 'internal_lab': 5, 'METLIN_SMRT': 2, 'RepoRT:0029;RepoRT:0040': 1}
 
 ## Feature Set
 
@@ -12,15 +12,17 @@ The model uses RDKit compound descriptors, simplified LC gradient encodings, col
 
 ## Models Tested
 
-- Linear baseline: Ridge regression
-- RandomForestRegressor
-- ExtraTreesRegressor
-- HistGradientBoostingRegressor
+- linear_ridge
+- random_forest
+- extra_trees
+- hist_gradient_boosting
+- xgboost
+- catboost
 
 ## Best Models
 
 - RT model: `extra_trees`
-- Peak quality surrogate: `random_forest`
+- Peak quality surrogate: `xgboost`
 
 ## RT Metrics
 
@@ -30,6 +32,8 @@ The model uses RDKit compound descriptors, simplified LC gradient encodings, col
 | random_forest | 2.176 | 4.193 | 0.867 | 1.918 | 3.62 | 0.881 |
 | extra_trees | 2.13 | 4.791 | 0.827 | 1.887 | 3.869 | 0.864 |
 | hist_gradient_boosting | 2.363 | 4.403 | 0.854 | 2.162 | 4.047 | 0.852 |
+| xgboost | 2.233 | 4.458 | 0.85 | 2.023 | 3.821 | 0.868 |
+| catboost | 2.529 | 4.218 | 0.866 | 2.299 | 3.578 | 0.884 |
 
 ## Quality Metrics
 
@@ -39,6 +43,8 @@ The model uses RDKit compound descriptors, simplified LC gradient encodings, col
 | random_forest | 0.0 | 0.003 | 0.838 | 0.0 | 0.0 | 0.999 |
 | extra_trees | 0.0 | 0.003 | 0.795 | 0.0 | 0.007 | 0.38 |
 | hist_gradient_boosting | 0.0 | 0.003 | 0.858 | 0.001 | 0.007 | 0.416 |
+| xgboost | 0.0 | 0.001 | 0.962 | 0.0 | 0.0 | 0.999 |
+| catboost | 0.0 | 0.002 | 0.937 | 0.0 | 0.003 | 0.849 |
 
 ## Source-wise Performance
 

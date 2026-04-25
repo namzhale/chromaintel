@@ -57,6 +57,8 @@ def test_candidate_models_include_cpu_practical_extra_trees():
     models = _candidate_models(categorical=["ion_mode"], numeric=["molecular_weight"])
 
     assert "extra_trees" in models
+    assert "xgboost" in models
+    assert "catboost" in models
 
 
 def test_train_forward_models_exports_sota_metadata_and_feature_importance(tmp_path):
@@ -68,6 +70,8 @@ def test_train_forward_models_exports_sota_metadata_and_feature_importance(tmp_p
     )
 
     assert "extra_trees" in summary.rt_metrics
+    assert "xgboost" in summary.rt_metrics
+    assert "catboost" in summary.rt_metrics
     assert summary.validation_metadata["split_strategy"] == "random_holdout_with_source_metadata"
     assert summary.validation_metadata["source_counts"]["train"]["internal_lab"] > 0
     assert summary.validation_metadata["group_column"] == "inchikey"

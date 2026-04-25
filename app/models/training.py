@@ -308,7 +308,7 @@ def generate_training_outputs(
 
 
 def _candidate_models(categorical: list[str], numeric: list[str]) -> dict[str, Pipeline]:
-    return {
+    models = {
         "linear_ridge": Pipeline(
             [
                 ("prep", _preprocessor(categorical, numeric, scale_numeric=True)),
@@ -334,6 +334,62 @@ def _candidate_models(categorical: list[str], numeric: list[str]) -> dict[str, P
             ]
         ),
     }
+    models.update(_optional_boosting_models(categorical, numeric))
+    return models
+
+
+def _optional_boosting_models(categorical: list[str], numeric: list[str]) -> dict[str, Pipeline]:
+    """Return optional CPU gradient-boosting candidates when dependencies exist."""
+
+    models: dict[str, Pipeline] = {}
+    try:
+        from xgboost import XGBRegressor
+    except Exception:
+        XGBRegressor = None
+    if XGBRegressor is not None:
+        models["xgboost"] = Pipeline(
+            [
+                ("prep", _preprocessor(categorical, numeric)),
+                (
+                    "model",
+                    XGBRegressor(
+                        objective="reg:squarederror",
+                        n_estimators=350,
+                        max_depth=6,
+                        learning_rate=0.05,
+                        subsample=0.9,
+                        colsample_bytree=0.85,
+                        tree_method="hist",
+                        random_state=42,
+                        n_jobs=1,
+                    ),
+                ),
+            ]
+        )
+    try:
+        from catboost import CatBoostRegressor
+    except Exception:
+        CatBoostRegressor = None
+    if CatBoostRegressor is not None:
+        models["catboost"] = Pipeline(
+            [
+                ("prep", _preprocessor(categorical, numeric)),
+                (
+                    "model",
+                    CatBoostRegressor(
+                        loss_function="RMSE",
+                        iterations=350,
+                        depth=6,
+                        learning_rate=0.05,
+                        random_seed=42,
+                        thread_count=1,
+                        verbose=False,
+                        allow_writing_files=False,
+                    ),
+                ),
+            ]
+        )
+    return models
 
 
 def _preprocessor(categorical: list[str], numeric: list[str], scale_numeric: bool = False) -> ColumnTransformer:
@@ -596,13 +652,22 @@ def _applicability_domain_metadata(
 
 def _sota_markdown(metadata: dict[str, Any]) -> str:
     rt_metrics = _markdown_table(pd.DataFrame(metadata["rt_metrics"]).T.round(3).reset_index(names="model"))
+    quality_metrics = _markdown_table(pd.DataFrame(metadata["quality_metrics"]).T.round(3).reset_index(names="model"))
     return f"""# SOTA Model Experiments
 
 This bounded experiment compares CPU-practical tabular regressors for the current demo RT matrix.
 
+## RT Metrics
+
 {rt_metrics}
 
-ExtraTrees is included as a low-dependency nonlinear baseline. Treat all scores as diagnostics until larger source-aware splits are available.
+## Quality Metrics
+
+{quality_metrics}
+
+Candidate models: {', '.join(metadata.get('candidate_models', []))}
+
+Tree ensembles, XGBoost, and CatBoost are trained on one-hot encoded LC/MS condition categories plus numeric RDKit/method descriptors. Treat public-source performance as diagnostic until source/group holdout validation is added.
 """
 
 
@@ -611,6 +676,7 @@ def _report_markdown(model_matrix: pd.DataFrame, metadata: dict[str, Any], sourc
     rt_metrics = _markdown_table(pd.DataFrame(metadata["rt_metrics"]).T.round(3).reset_index(names="model"))
     quality_metrics = _markdown_table(pd.DataFrame(metadata["quality_metrics"]).T.round(3).reset_index(names="model"))
     source_table = _markdown_table(source_perf.round(3))
+    model_lines = "\n".join(f"- {name}" for name in metadata.get("candidate_models", []))
     return f"""# LC-MS/MS Model Training Summary
 
 ## Datasets Used
@@ -625,10 +691,7 @@ The model uses RDKit compound descriptors, simplified LC gradient encodings, col
 
 ## Models Tested
 
-- Linear baseline: Ridge regression
-- RandomForestRegressor
-- ExtraTreesRegressor
-- HistGradientBoostingRegressor
+{model_lines}
 
 ## Best Models
 
