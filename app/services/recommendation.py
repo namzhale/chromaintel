@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from itertools import product
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -10,6 +12,9 @@ from app.core.config import get_settings
 from app.schemas.method import GradientStep, MethodInput, MSSettingsInput
 from app.schemas.prediction import RecommendationCandidate
 from app.services.predictor import ForwardPredictor
+
+
+DEFAULT_SEARCH_SPACE_PATH = Path(__file__).resolve().parents[2] / "config" / "recommendation_search_space.json"
 
 
 @dataclass
@@ -33,6 +38,22 @@ class CandidateSearchSpace:
     gradient_end_times: list[float] = field(default_factory=lambda: [3.5, 5.0, 8.0])
     max_runtime_min: float = 12.0
 
+    @classmethod
+    def from_config(cls, path: str | Path = DEFAULT_SEARCH_SPACE_PATH) -> "CandidateSearchSpace":
+        """Load a checked-in constrained LC method search space from JSON."""
+
+        config_path = Path(path)
+        payload = json.loads(config_path.read_text(encoding="utf-8"))
+        allowed_fields = cls.__dataclass_fields__
+        values = {key: value for key, value in payload.items() if key in allowed_fields}
+        return cls(**values)
+
+    @classmethod
+    def default(cls) -> "CandidateSearchSpace":
+        """Use checked-in config when present, otherwise fall back to in-code defaults."""
+
+        return cls.from_config(DEFAULT_SEARCH_SPACE_PATH) if DEFAULT_SEARCH_SPACE_PATH.exists() else cls()
+
 
 class RecommendationEngine:
     """Constrained optimizer that ranks generated methods with forward models."""
@@ -45,7 +66,7 @@ class RecommendationEngine:
     ):
         settings = get_settings()
         self.predictor = predictor
-        self.search_space = search_space or CandidateSearchSpace()
+        self.search_space = search_space or CandidateSearchSpace.default()
         self.weights = weights or {
             "quality": settings.recommendation_quality_weight,
             "rt_fit": settings.recommendation_rt_weight,
@@ -62,10 +83,22 @@ class RecommendationEngine:
         allowed_columns: list[str] | None = None,
         allowed_solvents_a: list[str] | None = None,
         allowed_solvents_b: list[str] | None = None,
+        allowed_ph_range: tuple[float, float] | None = None,
+        allowed_flow_range: tuple[float, float] | None = None,
+        allowed_temperature_range: tuple[float, float] | None = None,
+        max_runtime_min: float | None = None,
         ms_settings: MSSettingsInput | None = None,
     ) -> list[RecommendationCandidate]:
         candidates: list[RecommendationCandidate] = []
-        for method in self._candidate_methods(allowed_columns, allowed_solvents_a, allowed_solvents_b):
+        for method in self._candidate_methods(
+            allowed_columns,
+            allowed_solvents_a,
+            allowed_solvents_b,
+            allowed_ph_range,
+            allowed_flow_range,
+            allowed_temperature_range,
+            max_runtime_min,
+        ):
             pred = self.predictor.predict(compound, method, ms_settings)
             rt_fit = 1.0 - min(abs(pred["predicted_rt_min"] - target_rt_min) / max(target_rt_min, 0.1), 1.0)
             runtime_penalty = min(method.runtime_min / max(self.search_space.max_runtime_min, 0.1), 1.0)
@@ -118,20 +151,30 @@ class RecommendationEngine:
         allowed_columns: list[str] | None,
         allowed_solvents_a: list[str] | None,
         allowed_solvents_b: list[str] | None,
+        allowed_ph_range: tuple[float, float] | None = None,
+        allowed_flow_range: tuple[float, float] | None = None,
+        allowed_temperature_range: tuple[float, float] | None = None,
+        max_runtime_min: float | None = None,
     ) -> list[MethodInput]:
         columns = self._constrain(self.search_space.columns, allowed_columns)
         solvents_a = self._constrain(self.search_space.solvents_a, allowed_solvents_a)
         solvents_b = self._constrain(self.search_space.solvents_b, allowed_solvents_b)
+        ph_values = self._range_constrain(self.search_space.ph_values, allowed_ph_range)
+        flow_rates = self._range_constrain(self.search_space.flow_rates_ml_min, allowed_flow_range)
+        temperatures = self._range_constrain(self.search_space.temperatures_c, allowed_temperature_range)
+        runtime_limit = max_runtime_min or self.search_space.max_runtime_min
         methods = []
         for column, ph, flow, temp, solvent_a, solvent_b, end_time in product(
             columns,
-            self.search_space.ph_values,
-            self.search_space.flow_rates_ml_min,
-            self.search_space.temperatures_c,
+            ph_values,
+            flow_rates,
+            temperatures,
             solvents_a,
             solvents_b,
             self.search_space.gradient_end_times,
         ):
+            if float(end_time + 0.8) > float(runtime_limit):
+                continue
             stationary_phase = "HILIC" if "HILIC" in column.upper() else "reversed phase"
             initial_b = 85.0 if stationary_phase == "HILIC" else 5.0
             final_b = 95.0
@@ -160,3 +203,10 @@ class RecommendationEngine:
     def _constrain(defaults: list[str], allowed: list[str] | None) -> list[str]:
         allowed = [item for item in (allowed or []) if item]
         return [item for item in defaults if item in allowed] if allowed else defaults
+
+    @staticmethod
+    def _range_constrain(defaults: list[float], allowed_range: tuple[float, float] | None) -> list[float]:
+        if not allowed_range:
+            return defaults
+        low, high = allowed_range
+        return [value for value in defaults if float(low) <= float(value) <= float(high)]

@@ -200,45 +200,7 @@ def write_internal_templates(output_dir: str | Path = "data/templates") -> dict[
     template_csv = output / "internal_lab_historical_runs_template.csv"
     dictionary = output / "internal_lab_data_dictionary.md"
 
-    pd.DataFrame(
-        [
-            {
-                "run_id": "RUN-EXAMPLE-001",
-                "compound_name": "Caffeine",
-                "smiles": "Cn1cnc2c1c(=O)n(C)c(=O)n2C",
-                "matrix": "plasma",
-                "sample_prep": "protein precipitation",
-                "column_name": "BEH C18 50x2.1 mm 1.7um",
-                "column_chemistry": "C18",
-                "stationary_phase_type": "reversed phase",
-                "mobile_phase_a": "Water + 0.1% formic acid",
-                "mobile_phase_b": "Acetonitrile + 0.1% formic acid",
-                "ph": 3.2,
-                "gradient_profile": "5-95%B over 5.0 min, hold 0.8 min",
-                "initial_organic_pct": 5,
-                "final_organic_pct": 95,
-                "gradient_duration_min": 5.0,
-                "total_runtime_min": 5.8,
-                "temperature_c": 40,
-                "flow_ml_min": 0.35,
-                "injection_ul": 2,
-                "ion_mode": "positive",
-                "precursor_mz": 195.1,
-                "product_mz": 138.1,
-                "collision_energy_v": 20,
-                "rt_min": 1.35,
-                "peak_area": 212000,
-                "peak_height": 54000,
-                "sn_ratio": 82,
-                "tailing_factor": 1.1,
-                "asymmetry": 1.05,
-                "resolution": 2.1,
-                "success_flag": True,
-                "notes": "Example row; replace with historical lab data.",
-            }
-        ],
-        columns=INTERNAL_TEMPLATE_COLUMNS,
-    ).to_csv(template_csv, index=False)
+    pd.DataFrame(_template_example_rows(), columns=INTERNAL_TEMPLATE_COLUMNS).to_csv(template_csv, index=False)
 
     lines = ["# Internal Lab Historical Runs Data Dictionary", ""]
     for column in INTERNAL_TEMPLATE_COLUMNS:
@@ -246,6 +208,92 @@ def write_internal_templates(output_dir: str | Path = "data/templates") -> dict[
     dictionary.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     return {"template_csv": str(template_csv), "data_dictionary": str(dictionary)}
+
+
+def _template_example_rows() -> list[dict[str, object]]:
+    """Return realistic accepted and failed BE-style internal-history examples."""
+
+    base = {
+        "compound_name": "Caffeine",
+        "smiles": "Cn1cnc2c1c(=O)n(C)c(=O)n2C",
+        "pubchem_cid": 2519,
+        "inchikey": "RYYVLZVUVIJVGH-UHFFFAOYSA-N",
+        "matrix": "plasma",
+        "sample_prep": "protein precipitation",
+        "column_name": "BEH C18 50x2.1 mm 1.7um",
+        "column_chemistry": "C18",
+        "stationary_phase_type": "reversed phase",
+        "mobile_phase_a": "Water + 0.1% formic acid",
+        "mobile_phase_b": "Acetonitrile + 0.1% formic acid",
+        "ph": 3.2,
+        "gradient_profile": "5-95%B over 5.0 min, hold 0.8 min",
+        "initial_organic_pct": 5,
+        "final_organic_pct": 95,
+        "gradient_duration_min": 5.0,
+        "total_runtime_min": 5.8,
+        "temperature_c": 40,
+        "flow_ml_min": 0.35,
+        "injection_ul": 2,
+        "ion_mode": "positive",
+        "precursor_mz": 195.1,
+        "product_mz": 138.1,
+        "collision_energy_v": 20,
+        "rt_min": 1.35,
+        "peak_area": 212000,
+        "peak_height": 54000,
+        "sn_ratio": 82,
+        "tailing_factor": 1.1,
+        "asymmetry": 1.05,
+        "resolution": 2.1,
+        "success_flag": True,
+    }
+    examples = [
+        {
+            **base,
+            "run_id": "RUN-ACCEPTED-001",
+            "notes": "accepted; clean peak shape and adequate response",
+        },
+        {
+            **base,
+            "run_id": "RUN-FAILED-001",
+            "rt_min": 0.18,
+            "peak_area": 18000,
+            "peak_height": 5200,
+            "sn_ratio": 14,
+            "tailing_factor": 2.6,
+            "asymmetry": 2.2,
+            "resolution": 0.6,
+            "success_flag": False,
+            "notes": "failed; near-void elution and poor resolution from matrix front",
+        },
+        {
+            **base,
+            "run_id": "RUN-LOW-INTENSITY-001",
+            "peak_area": 4200,
+            "peak_height": 900,
+            "sn_ratio": 5,
+            "success_flag": False,
+            "notes": "low_intensity; response below lower calibration acceptance expectation",
+        },
+        {
+            **base,
+            "run_id": "RUN-POOR-RESOLUTION-001",
+            "rt_min": 1.02,
+            "resolution": 0.8,
+            "success_flag": False,
+            "notes": "poor_resolution; coelution with endogenous interference",
+        },
+        {
+            **base,
+            "run_id": "RUN-CARRYOVER-001",
+            "peak_area": 65000,
+            "peak_height": 16000,
+            "sn_ratio": 35,
+            "success_flag": False,
+            "notes": "carryover; post-ULOQ blank retained measurable analyte signal",
+        },
+    ]
+    return examples
 
 
 def _validate_numeric_range(

@@ -50,6 +50,12 @@ def test_write_internal_templates_creates_csv_and_dictionary(tmp_path):
 
     assert Path(outputs["template_csv"]).exists()
     assert Path(outputs["data_dictionary"]).exists()
+    template = pd.read_csv(outputs["template_csv"])
+    assert len(template) == 5
+    statuses = {str(note).split(";", 1)[0] for note in template["notes"]}
+    assert {"accepted", "failed", "low_intensity", "poor_resolution", "carryover"}.issubset(
+        statuses
+    )
 
 
 def test_internal_lab_validation_flags_gradient_vocab_and_transition_gaps():

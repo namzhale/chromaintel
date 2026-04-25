@@ -6,7 +6,7 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 
 - Repo is public at `https://github.com/namzhale/chromaintel`.
 - Latest major implemented layer: SOTA-oriented CPU training and data extraction pipeline.
-- Current verified tests: `32 passed` with project `.venv`.
+- Current verified tests: `33 passed` with project `.venv`.
 - Current trained demo artifact exists at `data/processed/models/trained_forward_bundle.joblib`.
 - Current processed model matrix is 15,052 rows and 3,945 compounds after RepoRT plus MCMRT expansion; quality target still provisional.
 
@@ -21,7 +21,7 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 ## Milestone B: Internal Lab Onboarding Maturity
 
 - [x] Add `docs/internal_lab_onboarding.md` with realistic BE workflow instructions.
-- [ ] Add template examples for accepted, failed, low intensity, poor resolution, and carryover cases.
+- [x] Add template examples for accepted, failed, low intensity, poor resolution, and carryover cases.
 - [x] Add validation for gradient consistency, ion mode vocabulary, matrix vocabulary, and required MS transition fields when ion mode is known.
 - [x] Add an import preview report that summarizes missingness, invalid rows, and duplicate runs.
 
@@ -37,8 +37,8 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 ## Milestone D: Recommendation Engine Upgrade
 
 - [x] Add score decomposition to recommendation outputs: RT fit, quality, runtime penalty, confidence, AD penalty.
-- [ ] Make search-space bounds configurable from a checked-in YAML/JSON settings file.
-- [ ] Add candidate constraints for available columns, solvent systems, pH range, flow range, temperature range, and max runtime.
+- [x] Make search-space bounds configurable from a checked-in YAML/JSON settings file.
+- [x] Add candidate constraints for available columns, solvent systems, pH range, flow range, temperature range, and max runtime.
 - [x] Penalize out-of-domain candidates from trained bundle metadata.
 - [x] Add tests for ranking stability and score decomposition.
 
@@ -62,8 +62,8 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 
 Next high-value slice:
 
-1. Add checked-in search-space configuration for recommendation bounds.
-2. Add method/column-family holdout metrics and wire them into the Russian PDF dashboard.
-3. Add accepted/failed/low-intensity/poor-resolution/carryover rows to the internal lab template package.
-4. Run core training plus optional Morgan comparison artifact if CPU time is acceptable.
+1. Add method/column-family holdout metrics and wire them into the Russian PDF dashboard.
+2. Run core training plus optional Morgan comparison artifact if CPU time is acceptable.
+3. Add GUI/API release polish: local-public import preview, source metrics, AD flags, and uncertainty interval views.
+4. Smoke-test Streamlit and FastAPI locally.
 5. Run full tests, training, commit, push.

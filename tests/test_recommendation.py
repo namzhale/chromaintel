@@ -91,6 +91,27 @@ def test_recommendations_penalize_out_of_domain_candidates():
     assert recs[1].score_components["ad_penalty"] == 1.0
 
 
+def test_search_space_loads_from_checked_in_config_and_applies_bounds():
+    search_space = CandidateSearchSpace.from_config()
+    engine = RecommendationEngine(StubForwardModel(), search_space=search_space)
+
+    methods = engine._candidate_methods(
+        allowed_columns=["BEH C18 50x2.1 mm 1.7um"],
+        allowed_solvents_a=["Water + 0.1% formic acid"],
+        allowed_solvents_b=["Acetonitrile + 0.1% formic acid"],
+        allowed_ph_range=(3.0, 3.5),
+        allowed_flow_range=(0.3, 0.4),
+        allowed_temperature_range=(39.0, 41.0),
+        max_runtime_min=6.0,
+    )
+
+    assert methods
+    assert {method.ph for method in methods} == {3.2}
+    assert {method.flow_rate_ml_min for method in methods} == {0.35}
+    assert {method.temperature_c for method in methods} == {40.0}
+    assert all(method.runtime_min <= 6.0 for method in methods)
+
+
 def test_method_input_estimates_runtime_from_gradient_steps():
     method = MethodInput(
         column="BEH C18",

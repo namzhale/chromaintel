@@ -87,6 +87,8 @@ streamlit run app/gui/streamlit_app.py
 The GUI includes Dataset Assembly and Training pages. Forward Prediction and Method Recommendation automatically use `data/processed/models/trained_forward_bundle.joblib` when present, then fall back to the older baseline or transparent heuristic.
 Trained predictions also expose applicability-domain flags and reasons based on saved training feature ranges and categorical values.
 
+Recommendation candidate generation uses the checked-in method search space at `config/recommendation_search_space.json`. The engine can constrain available columns, solvent systems, pH range, flow range, temperature range, and maximum runtime at request time.
+
 Run the API:
 
 ```powershell
@@ -191,7 +193,7 @@ Template files:
 - `data/templates/internal_lab_historical_runs_template.csv`
 - `data/templates/internal_lab_data_dictionary.md`
 
-The Admin/import GUI page previews uploaded CSV files and validates required fields, numeric ranges, invalid SMILES, duplicate run IDs, gradient consistency, ion mode and matrix vocabularies, and required MRM transition fields when ion mode is known.
+The internal template includes accepted, failed, low-intensity, poor-resolution, and carryover examples for realistic BE-style onboarding. The Admin/import GUI page previews uploaded CSV files and validates required fields, numeric ranges, invalid SMILES, duplicate run IDs, gradient consistency, ion mode and matrix vocabularies, and required MRM transition fields when ion mode is known.
 
 ## Model Evaluation
 
