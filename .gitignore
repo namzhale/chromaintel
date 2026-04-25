@@ -6,4 +6,9 @@ __pycache__/
 data/processed/models/*.joblib
 !data/processed/models/trained_forward_bundle.joblib
 data/processed/plots/*.html
+data/raw/public_sources/SMRT_dataset.csv
+data/raw/public_sources/retina_dataset*.csv
+data/processed/external_retina_hf*.csv
+data/processed/external_metlin_smrt_figshare*.csv
+data/processed/external_kaggle_metlin_descriptors*.csv
 .venv/

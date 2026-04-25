@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import sys
 from dataclasses import dataclass
@@ -34,6 +35,11 @@ MCMRT_SUPPLEMENT_URL = (
 )
 MCMRT_ARTICLE_URL = "https://www.nature.com/articles/s41597-024-03780-5"
 MCMRT_DATASET_DOI = "https://doi.org/10.57760/sciencedb.15823"
+RETINA_DATASET_URL = "https://huggingface.co/datasets/natelgrw/ReTiNA"
+RETINA_CSV_URL = f"{RETINA_DATASET_URL}/resolve/main/data/retina_dataset.csv"
+KAGGLE_METLIN_URL = "https://www.kaggle.com/datasets/satwikmurarka/meltin-retention-times-with-molecular-descriptors/data"
+METLIN_SMRT_FIGSHARE_DOI = "https://doi.org/10.6084/m9.figshare.8038913"
+METLIN_SMRT_FIGSHARE_CSV_URL = "https://ndownloader.figshare.com/files/18130628"
 
 REQUIRED_MANIFEST_FIELDS = {
     "source_name",
@@ -198,6 +204,284 @@ def import_local_public_export(
     output_path = processed_dir / f"external_{safe_name}_sample.csv"
     normalized.to_csv(output_path, index=False)
     return output_path
+
+
+def fetch_retina_dataset(
+    rows: int | None = None,
+    raw_dir: Path = RAW_DIR,
+    processed_dir: Path = PROCESSED_DIR,
+    output_name: str = "retina_hf",
+    local_csv: str | Path | None = None,
+) -> Path:
+    """Fetch or load the Hugging Face ReTiNA method-conditioned RT dataset."""
+
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    processed_dir.mkdir(parents=True, exist_ok=True)
+    source = Path(local_csv) if local_csv else RETINA_CSV_URL
+    row_limit = rows if rows and rows > 0 else None
+    raw = pd.read_csv(source, nrows=row_limit)
+    if local_csv is None:
+        raw_name = "retina_dataset_sample.csv" if rows else "retina_dataset.csv"
+        raw.to_csv(raw_dir / raw_name, index=False)
+
+    normalized = normalize_retina_frame(raw)
+    output_path = processed_dir / f"external_{output_name}.csv"
+    normalized.to_csv(output_path, index=False)
+    print(f"Normalized ReTiNA to {len(normalized)} rows")
+    return output_path
+
+
+def normalize_retina_frame(raw: pd.DataFrame) -> pd.DataFrame:
+    """Normalize ReTiNA CSV rows into the canonical nullable RT schema."""
+
+    rows_out: list[dict[str, Any]] = []
+    for index, row in raw.reset_index(drop=True).iterrows():
+        method_number = row.get("method_number")
+        source = _clean_text(row.get("source"))
+        source_text = "unknown" if pd.isna(source) else str(source)
+        record_id = f"ReTiNA:{source_text}:{method_number}:{index}"
+        gradient = _literal_or_none(row.get("gradient"))
+        column = _literal_or_none(row.get("column"))
+        initial_b, final_b, gradient_duration, runtime = _retina_gradient_summary(gradient)
+        column_name, stationary_phase = _retina_column_summary(column)
+        rows_out.append(
+            {
+                "compound_name": record_id,
+                "smiles": row.get("compound"),
+                "source_dataset": f"ReTiNA:{source_text}",
+                "source_record_id": record_id,
+                "column_name": column_name,
+                "column_chemistry": pd.NA,
+                "stationary_phase_type": stationary_phase,
+                "mobile_phase_a": _retina_solvent_label(row.get("solvents"), "A"),
+                "mobile_phase_b": _retina_solvent_label(row.get("solvents"), "B"),
+                "gradient_profile": _retina_gradient_label(gradient),
+                "initial_organic_pct": initial_b,
+                "final_organic_pct": final_b,
+                "gradient_duration_min": gradient_duration,
+                "total_runtime_min": runtime,
+                "temperature_c": row.get("temp"),
+                "flow_ml_min": row.get("flow_rate"),
+                "ion_mode": "unknown",
+                "rt_min": pd.to_numeric(row.get("rt"), errors="coerce") / 60.0,
+                "matrix": "reference",
+                "success_flag": True,
+                "notes": (
+                    "Hugging Face ReTiNA import; rt converted from seconds to minutes; "
+                    f"source_url={RETINA_DATASET_URL}; license=MIT; "
+                    "gradient percent is retained as source-provided %B surrogate"
+                ),
+            }
+        )
+    normalized = normalize_source_frame(pd.DataFrame(rows_out), source_dataset="ReTiNA")
+    normalized["missing_fields_count"] = normalized[CANONICAL_DATASET_COLUMNS[:-1]].isna().sum(axis=1)
+    return normalized
+
+
+def import_kaggle_metlin_export(
+    path: str | Path,
+    rows: int | None = None,
+    processed_dir: Path = PROCESSED_DIR,
+    output_name: str = "kaggle_metlin_smrt",
+    rt_units: str = "seconds",
+    figshare_csv: str | Path | None = None,
+) -> Path:
+    """Normalize a locally downloaded Kaggle METLIN SMRT descriptor export."""
+
+    processed_dir.mkdir(parents=True, exist_ok=True)
+    raw = _read_public_table(Path(path))
+    if rows is not None and rows > 0:
+        raw = raw.head(rows)
+    if figshare_csv and not _has_structure_columns(raw):
+        normalized, descriptors = normalize_kaggle_metlin_descriptors_with_figshare(
+            raw,
+            figshare_csv=figshare_csv,
+            return_descriptors=True,
+        )
+        descriptors_path = processed_dir / f"external_{output_name}_descriptors.csv"
+        descriptors.to_csv(descriptors_path, index=False)
+    else:
+        normalized = normalize_kaggle_metlin_frame(raw, rt_units=rt_units)
+    output_path = processed_dir / f"external_{output_name}.csv"
+    normalized.to_csv(output_path, index=False)
+    return output_path
+
+
+def normalize_kaggle_metlin_descriptors_with_figshare(
+    descriptors: pd.DataFrame,
+    figshare_csv: str | Path,
+    return_descriptors: bool = False,
+) -> pd.DataFrame | tuple[pd.DataFrame, pd.DataFrame]:
+    """Attach identities to Kaggle descriptor-only rows using Figshare row order.
+
+    The Kaggle descriptor export contains RT and RDKit descriptors but no SMILES,
+    CID, or InChI. It is an ordered subset of the original METLIN SMRT Figshare
+    CSV after removing non-retained and descriptor-failed molecules. We align
+    rows by RT sequence, allowing skipped Figshare rows, then use Figshare InChI
+    to derive canonical structures.
+    """
+
+    if "rt" not in descriptors.columns:
+        raise ValueError("Kaggle METLIN descriptor export must include an rt column for alignment")
+    figshare = pd.read_csv(figshare_csv, sep=";")
+    filtered = figshare[pd.to_numeric(figshare["rt"], errors="coerce").ge(120)].reset_index(drop=True)
+    matches = _align_kaggle_descriptors_to_figshare(descriptors["rt"], filtered["rt"])
+    if len(matches) != len(descriptors):
+        raise ValueError(
+            "Could not align every Kaggle descriptor row to Figshare METLIN rows; "
+            f"matched {len(matches)} of {len(descriptors)}"
+        )
+
+    aligned = filtered.iloc[[fig_idx for _, fig_idx in matches]].reset_index(drop=True)
+    normalized = normalize_metlin_smrt_figshare_frame(aligned)
+    descriptor_sidecar = descriptors.reset_index(drop=True).copy()
+    descriptor_sidecar.insert(0, "source_record_id", normalized["source_record_id"])
+    descriptor_sidecar.insert(1, "inchikey", normalized["inchikey"])
+    descriptor_sidecar.insert(2, "canonical_smiles", normalized["canonical_smiles"])
+    descriptor_sidecar["source_dataset"] = "Kaggle_METLIN_SMRT_descriptors"
+    normalized["source_dataset"] = "Kaggle_METLIN_SMRT"
+    normalized["notes"] = normalized["notes"].map(
+        lambda note: _append_note(
+            note,
+            "Kaggle descriptor-only export aligned to original Figshare rows by ordered RT sequence",
+        )
+    )
+    return (normalized, descriptor_sidecar) if return_descriptors else normalized
+
+
+def fetch_metlin_smrt_figshare(
+    rows: int | None = None,
+    raw_dir: Path = RAW_DIR,
+    processed_dir: Path = PROCESSED_DIR,
+    output_name: str = "metlin_smrt_figshare",
+    local_csv: str | Path | None = None,
+) -> Path:
+    """Fetch or load the original METLIN SMRT Figshare CSV and normalize it."""
+
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    processed_dir.mkdir(parents=True, exist_ok=True)
+    raw_path = Path(local_csv) if local_csv else raw_dir / "SMRT_dataset.csv"
+    if local_csv is None and not raw_path.exists():
+        raw_path.write_bytes(urlopen(METLIN_SMRT_FIGSHARE_CSV_URL, timeout=120).read())
+    row_limit = rows if rows and rows > 0 else None
+    raw = pd.read_csv(raw_path, sep=";", nrows=row_limit)
+    normalized, rejected = normalize_metlin_smrt_figshare_frame(raw, return_rejected=True)
+    output_path = processed_dir / f"external_{output_name}.csv"
+    normalized.to_csv(output_path, index=False)
+    rejected_path = processed_dir / f"external_{output_name}_rejected.csv"
+    rejected.to_csv(rejected_path, index=False)
+    print(f"Normalized METLIN SMRT Figshare to {len(normalized)} rows; rejected {len(rejected)} rows")
+    return output_path
+
+
+def normalize_metlin_smrt_figshare_frame(
+    raw: pd.DataFrame,
+    return_rejected: bool = False,
+) -> pd.DataFrame | tuple[pd.DataFrame, pd.DataFrame]:
+    """Normalize original Figshare METLIN SMRT rows with PubChem CID, RT, and InChI."""
+
+    required = {"pubchem", "rt", "inchi"}
+    missing = required - set(raw.columns)
+    if missing:
+        raise ValueError(f"METLIN SMRT Figshare CSV is missing columns: {sorted(missing)}")
+
+    rows_out = []
+    rejected_rows = []
+    for index, row in raw.reset_index(drop=True).iterrows():
+        smiles, inchikey = _inchi_to_smiles_key(row.get("inchi"))
+        if not smiles:
+            rejected_rows.append(
+                {
+                    "source_record_id": f"PubChem:{row.get('pubchem')}",
+                    "rt_seconds": row.get("rt"),
+                    "reason": "rdkit_inchi_conversion_failed",
+                }
+            )
+            continue
+        record_id = f"PubChem:{row.get('pubchem')}"
+        rows_out.append(
+            {
+                "compound_name": f"PubChem CID {row.get('pubchem')}",
+                "smiles": smiles,
+                "canonical_smiles": smiles,
+                "inchikey": inchikey,
+                "source_dataset": "METLIN_SMRT_Figshare",
+                "source_record_id": record_id,
+                "column_name": "Agilent Zorbax Extend-C18 2.1 x 50 mm, 1.8 um",
+                "column_chemistry": "C18",
+                "stationary_phase_type": "reversed phase",
+                "mobile_phase_a": "water + 0.1% formic acid",
+                "mobile_phase_b": "acetonitrile + 0.1% formic acid",
+                "gradient_profile": "5% B 0-3 min; 50% B at 5 min; 85% B at 20 min; hold to 23 min",
+                "initial_organic_pct": 5,
+                "final_organic_pct": 85,
+                "gradient_duration_min": 20,
+                "total_runtime_min": 23,
+                "flow_ml_min": 0.1,
+                "ion_mode": "both",
+                "rt_min": pd.to_numeric(row.get("rt"), errors="coerce") / 60.0,
+                "matrix": "reference",
+                "success_flag": True,
+                "notes": (
+                    "Original METLIN SMRT Figshare CSV import; rt converted from seconds to minutes; "
+                    f"source_url={METLIN_SMRT_FIGSHARE_DOI}; license=Apache-2.0; "
+                    f"kaggle_derivative={KAGGLE_METLIN_URL}; row_index={index}"
+                ),
+            }
+        )
+    normalized = normalize_source_frame(pd.DataFrame(rows_out), source_dataset="METLIN_SMRT_Figshare")
+    normalized["missing_fields_count"] = normalized[CANONICAL_DATASET_COLUMNS[:-1]].isna().sum(axis=1)
+    rejected = pd.DataFrame(rejected_rows, columns=["source_record_id", "rt_seconds", "reason"])
+    return (normalized, rejected) if return_rejected else normalized
+
+
+def normalize_kaggle_metlin_frame(raw: pd.DataFrame, rt_units: str = "seconds") -> pd.DataFrame:
+    """Normalize Kaggle's METLIN SMRT-with-descriptors table into canonical rows."""
+
+    smiles_column = _first_present_column(raw, ["SMILES", "smiles", "Smile", "canonical_smiles"])
+    rt_column = _first_present_column(
+        raw,
+        ["rt", "RT", "retention_time", "retention time", "Retention time", "Retention_Time"],
+    )
+    name_column = _first_present_column(raw, ["compound_name", "name", "Name", "compound"], required=False)
+    rt_values = pd.to_numeric(raw[rt_column], errors="coerce")
+    if rt_units.lower().startswith("sec"):
+        rt_values = rt_values / 60.0
+
+    rows_out = []
+    for index, row in raw.reset_index(drop=True).iterrows():
+        record_id = f"Kaggle_METLIN_SMRT:{index}"
+        rows_out.append(
+            {
+                "compound_name": row.get(name_column) if name_column else record_id,
+                "smiles": row.get(smiles_column),
+                "source_dataset": "Kaggle_METLIN_SMRT",
+                "source_record_id": record_id,
+                "column_name": "Agilent Zorbax Extend-C18 2.1 x 50 mm, 1.8 um",
+                "column_chemistry": "C18",
+                "stationary_phase_type": "reversed phase",
+                "mobile_phase_a": "water + 0.1% formic acid",
+                "mobile_phase_b": "acetonitrile + 0.1% formic acid",
+                "gradient_profile": "5% B 0-3 min; 50% B at 5 min; 85% B at 20 min; hold to 23 min",
+                "initial_organic_pct": 5,
+                "final_organic_pct": 85,
+                "gradient_duration_min": 20,
+                "total_runtime_min": 23,
+                "flow_ml_min": 0.1,
+                "ion_mode": "unknown",
+                "rt_min": rt_values.iloc[index],
+                "matrix": "reference",
+                "success_flag": True,
+                "notes": (
+                    "Kaggle METLIN SMRT descriptor export; rt converted to minutes when source units are seconds; "
+                    f"source_url={KAGGLE_METLIN_URL}; original_dataset={METLIN_SMRT_FIGSHARE_DOI}; "
+                    "license=CC-BY-4.0 per Kaggle data card"
+                ),
+            }
+        )
+    normalized = normalize_source_frame(pd.DataFrame(rows_out), source_dataset="Kaggle_METLIN_SMRT")
+    normalized["missing_fields_count"] = normalized[CANONICAL_DATASET_COLUMNS[:-1]].isna().sum(axis=1)
+    return normalized
 
 
 def fetch_mcmrt_supplement(
@@ -449,6 +733,100 @@ def _clean_text(value: object) -> object:
     return text if text else pd.NA
 
 
+def _literal_or_none(value: object) -> object:
+    if isinstance(value, (tuple, list, dict)):
+        return value
+    if pd.isna(value):
+        return None
+    try:
+        return ast.literal_eval(str(value))
+    except (SyntaxError, ValueError):
+        return None
+
+
+def _retina_gradient_summary(gradient: object) -> tuple[object, object, object, object]:
+    if not isinstance(gradient, list) or not gradient:
+        return pd.NA, pd.NA, pd.NA, pd.NA
+    points = [
+        (pd.to_numeric(point[0], errors="coerce"), pd.to_numeric(point[1], errors="coerce"))
+        for point in gradient
+        if isinstance(point, (tuple, list)) and len(point) >= 2
+    ]
+    points = [(float(time), float(percent_b)) for time, percent_b in points if pd.notna(time) and pd.notna(percent_b)]
+    if not points:
+        return pd.NA, pd.NA, pd.NA, pd.NA
+    max_b = max(percent_b for _, percent_b in points)
+    max_b_time = next(time for time, percent_b in points if percent_b == max_b)
+    return points[0][1], max_b, max_b_time, max(time for time, _ in points)
+
+
+def _retina_gradient_label(gradient: object) -> object:
+    if not isinstance(gradient, list) or not gradient:
+        return pd.NA
+    parts = []
+    for point in gradient:
+        if isinstance(point, (tuple, list)) and len(point) >= 2:
+            parts.append(f"{point[0]} min: {point[1]}% B")
+    return "; ".join(parts) if parts else pd.NA
+
+
+def _retina_column_summary(column: object) -> tuple[object, object]:
+    if not isinstance(column, (tuple, list)) or not column:
+        return pd.NA, pd.NA
+    mode = str(column[0]).upper()
+    if len(column) >= 4:
+        column_name = f"{mode} column {column[1]} x {column[2]} mm, {column[3]} um"
+    else:
+        column_name = f"{mode} column"
+    stationary = "reversed phase" if mode == "RP" else mode
+    return column_name, stationary
+
+
+def _retina_solvent_label(solvents: object, phase: str) -> object:
+    payload = _literal_or_none(solvents)
+    if not isinstance(payload, dict) or phase not in payload:
+        return pd.NA
+    labels = []
+    for component in payload.get(phase, []):
+        if isinstance(component, dict):
+            for token, amount in component.items():
+                number = pd.to_numeric(amount, errors="coerce")
+                if pd.notna(number):
+                    labels.append(f"{float(number):g}% {_solvent_token_label(token)}")
+    return " + ".join(labels) if labels else pd.NA
+
+
+def _solvent_token_label(token: object) -> str:
+    mapping = {
+        "O": "water",
+        "CC#N": "acetonitrile",
+        "CO": "methanol",
+        "CC(C)O": "isopropanol",
+        "C(=O)O": "formic acid",
+        "CC(=O)O": "acetic acid",
+    }
+    return mapping.get(str(token), str(token))
+
+
+def _inchi_to_smiles_key(inchi: object) -> tuple[str | None, str | None]:
+    if pd.isna(inchi):
+        return None, None
+    try:
+        from rdkit import Chem
+        from rdkit.Chem import inchi as rdkit_inchi
+    except ImportError:
+        return None, None
+    mol = Chem.MolFromInchi(str(inchi), sanitize=True, removeHs=True)
+    if mol is None:
+        return None, None
+    smiles = Chem.MolToSmiles(mol, canonical=True)
+    try:
+        inchikey = rdkit_inchi.InchiToInchiKey(str(inchi))
+    except (AttributeError, ValueError):
+        inchikey = Chem.MolToInchiKey(mol) if hasattr(Chem, "MolToInchiKey") else None
+    return smiles, inchikey
+
+
 def _download_report_files(dataset_id: str, raw_dir: Path) -> RepoRTFiles:
     names = {
         "metadata": f"{dataset_id}_metadata.tsv",
@@ -477,6 +855,44 @@ def _read_public_table(path: Path) -> pd.DataFrame:
     if suffix in {".tsv", ".tab"}:
         return pd.read_csv(path, sep="\t")
     return pd.read_csv(path, sep=None, engine="python")
+
+
+def _first_present_column(frame: pd.DataFrame, candidates: list[str], required: bool = True) -> str | None:
+    lookup = {str(column).strip().lower(): column for column in frame.columns}
+    for candidate in candidates:
+        column = lookup.get(candidate.strip().lower())
+        if column is not None:
+            return str(column)
+    if required:
+        raise ValueError(f"Missing required source column; tried {candidates}")
+    return None
+
+
+def _has_structure_columns(frame: pd.DataFrame) -> bool:
+    return _first_present_column(
+        frame,
+        ["SMILES", "smiles", "Smile", "canonical_smiles", "inchi", "InChI"],
+        required=False,
+    ) is not None
+
+
+def _align_kaggle_descriptors_to_figshare(
+    kaggle_rt_seconds: pd.Series,
+    figshare_rt_seconds: pd.Series,
+    tolerance: float = 1e-6,
+) -> list[tuple[int, int]]:
+    matches: list[tuple[int, int]] = []
+    kaggle_index = 0
+    kaggle_values = pd.to_numeric(kaggle_rt_seconds, errors="coerce").reset_index(drop=True)
+    figshare_values = pd.to_numeric(figshare_rt_seconds, errors="coerce").reset_index(drop=True)
+    for figshare_index, figshare_rt in enumerate(figshare_values):
+        if kaggle_index >= len(kaggle_values):
+            break
+        kaggle_rt = kaggle_values.iloc[kaggle_index]
+        if pd.notna(figshare_rt) and pd.notna(kaggle_rt) and abs(float(figshare_rt) - float(kaggle_rt)) <= tolerance:
+            matches.append((kaggle_index, figshare_index))
+            kaggle_index += 1
+    return matches
 
 
 def _with_normalizer_placeholders(frame: pd.DataFrame) -> pd.DataFrame:
@@ -625,6 +1041,34 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--mcmrt", action="store_true", help="Fetch and normalize the MCMRT supplementary RT matrix.")
     parser.add_argument("--mcmrt-local-xlsx", type=Path, help="Use a local MCMRT supplementary XLSX instead of downloading.")
     parser.add_argument("--mcmrt-rows", type=int, help="Optional row limit for the normalized MCMRT matrix.")
+    parser.add_argument("--retina", action="store_true", help="Fetch and normalize the Hugging Face ReTiNA dataset.")
+    parser.add_argument("--retina-local-csv", type=Path, help="Use a local ReTiNA CSV instead of downloading from HF.")
+    parser.add_argument(
+        "--kaggle-metlin-local",
+        type=Path,
+        help="Use a locally downloaded Kaggle METLIN SMRT descriptor CSV/TSV export.",
+    )
+    parser.add_argument(
+        "--kaggle-metlin-rt-units",
+        default="seconds",
+        choices=["seconds", "minutes"],
+        help="RT units in the Kaggle METLIN export.",
+    )
+    parser.add_argument(
+        "--kaggle-metlin-figshare-csv",
+        type=Path,
+        help="Original Figshare SMRT_dataset.csv used to attach identities to Kaggle descriptor-only exports.",
+    )
+    parser.add_argument(
+        "--metlin-smrt-figshare",
+        action="store_true",
+        help="Fetch and normalize the original METLIN SMRT Figshare CSV.",
+    )
+    parser.add_argument(
+        "--metlin-smrt-local-csv",
+        type=Path,
+        help="Use a local original METLIN SMRT Figshare-format CSV.",
+    )
     parser.add_argument(
         "--local-export",
         type=Path,
@@ -654,7 +1098,27 @@ def main() -> int:
                 f"{source['ingestion_mode']} | {source['url']}"
             )
         return 0
-    if args.mcmrt or args.mcmrt_local_xlsx:
+    if args.retina or args.retina_local_csv:
+        output = fetch_retina_dataset(
+            rows=args.rows,
+            output_name=args.output_name or "retina_hf",
+            local_csv=args.retina_local_csv,
+        )
+    elif args.metlin_smrt_figshare or args.metlin_smrt_local_csv:
+        output = fetch_metlin_smrt_figshare(
+            rows=args.rows,
+            output_name=args.output_name or "metlin_smrt_figshare",
+            local_csv=args.metlin_smrt_local_csv,
+        )
+    elif args.kaggle_metlin_local:
+        output = import_kaggle_metlin_export(
+            args.kaggle_metlin_local,
+            rows=args.rows,
+            output_name=args.output_name or "kaggle_metlin_smrt",
+            rt_units=args.kaggle_metlin_rt_units,
+            figshare_csv=args.kaggle_metlin_figshare_csv,
+        )
+    elif args.mcmrt or args.mcmrt_local_xlsx:
         output = fetch_mcmrt_supplement(
             rows=args.mcmrt_rows,
             output_name=args.output_name or "mcmrt_supplement",

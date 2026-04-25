@@ -74,6 +74,48 @@
       "ingestion_mode": "reviewed_local_export"
     },
     {
+      "source_name": "ReTiNA",
+      "url": "https://huggingface.co/datasets/natelgrw/ReTiNA",
+      "license": "MIT per Hugging Face dataset card; preserve source and method split provenance",
+      "expected_fields": [
+        "smiles",
+        "rt_min",
+        "source_dataset",
+        "method_number",
+        "column_name",
+        "mobile_phase_a",
+        "mobile_phase_b",
+        "gradient_profile",
+        "temperature_c",
+        "flow_ml_min"
+      ],
+      "adapter_status": "implemented_huggingface_csv_normalizer",
+      "known_missingness": [
+        "compound_name",
+        "bioanalytical_matrix",
+        "peak_quality_metrics",
+        "ms_transitions"
+      ],
+      "ingestion_mode": "direct_huggingface_csv_or_reviewed_local_export"
+    },
+    {
+      "source_name": "Kaggle_METLIN_SMRT",
+      "url": "https://www.kaggle.com/datasets/satwikmurarka/meltin-retention-times-with-molecular-descriptors/data",
+      "license": "CC-BY-4.0 per Kaggle data card; original dataset DOI https://doi.org/10.6084/m9.figshare.8038913",
+      "expected_fields": [
+        "smiles",
+        "rt_min"
+      ],
+      "adapter_status": "implemented_local_export_normalizer",
+      "known_missingness": [
+        "method variation",
+        "bioanalytical_matrix",
+        "peak_quality_metrics",
+        "ms_transitions"
+      ],
+      "ingestion_mode": "kaggle_authenticated_download_then_local_csv_import"
+    },
+    {
       "source_name": "MetabolomicsWorkbench_RT_Search",
       "url": "https://www.metabolomicsworkbench.org/data/search_rt_form.php",
       "license": "review study-level terms before use",

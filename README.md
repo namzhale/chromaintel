@@ -150,6 +150,10 @@ python scripts/fetch_public_datasets.py --bulk-report --target-rows 5000 --max-d
 
 python scripts/fetch_public_datasets.py --mcmrt --output-name mcmrt_supplement
 
+python scripts/fetch_public_datasets.py --retina --rows 0 --output-name retina_hf_full
+
+python scripts/fetch_public_datasets.py --metlin-smrt-figshare --rows 0 --output-name metlin_smrt_figshare
+
 python scripts/assemble_dataset.py
 
 python scripts/fetch_public_datasets.py `
@@ -159,16 +163,16 @@ python scripts/fetch_public_datasets.py `
   --license-note CC-BY-SA-4.0
 ```
 
-High-value next data expansion is a reviewed local METLIN SMRT Figshare export. Use the generic local importer after downloading and reviewing license/provenance:
+For a Kaggle METLIN descriptor-only export, use the original Figshare CSV as the identity companion so PubChem IDs, SMILES, and InChIKeys can be restored:
 
 ```powershell
 python scripts/fetch_public_datasets.py `
-  --local-export data\raw\public_sources\metlin_smrt_reviewed.csv `
-  --source-name METLIN_SMRT `
-  --source-url https://doi.org/10.6084/m9.figshare.8038913 `
-  --license-note "Apache-2.0; reviewed local export" `
-  --output-name metlin_smrt
+  --kaggle-metlin-local data\raw\public_sources\descriptors.csv `
+  --kaggle-metlin-figshare-csv data\raw\public_sources\SMRT_dataset.csv `
+  --output-name kaggle_metlin_descriptors
 ```
+
+Large public downloads and descriptor sidecars are intentionally ignored by git. See `reports/public_dataset_expansion_summary.md` and `docs/data_sources/retina_and_kaggle_metlin.md` for row counts and provenance notes.
 
 Fixture-based public RT adapter coverage is available for PredRet-style, GMCRT-style, and multi-condition RT supplementary tables. These paths are designed for reviewed local CSV/TSV/XLSX exports rather than unreviewed scraping. See:
 

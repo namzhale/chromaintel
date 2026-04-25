@@ -6,9 +6,14 @@ import pytest
 from scripts.fetch_public_datasets import (
     REQUIRED_MANIFEST_FIELDS,
     import_local_public_export,
+    import_kaggle_metlin_export,
     list_report_dataset_ids,
     load_public_source_manifest,
+    normalize_kaggle_metlin_descriptors_with_figshare,
+    normalize_kaggle_metlin_frame,
+    normalize_metlin_smrt_figshare_frame,
     normalize_mcmrt_workbook,
+    normalize_retina_frame,
 )
 from scripts.assemble_dataset import assemble_dataset
 
@@ -77,6 +82,115 @@ def test_import_local_public_export_rejects_files_without_rt(tmp_path):
             license_note="test license",
             processed_dir=tmp_path,
         )
+
+
+def test_normalize_retina_frame_converts_method_conditioned_rt_seconds_to_minutes():
+    raw = pd.DataFrame(
+        [
+            {
+                "compound": "CCO",
+                "solvents": "{'A': [{'O': 100}], 'B': [{'CC#N': 100}, {'C(=O)O': 0.1}]}",
+                "gradient": "[(0, 5), (3, 5), (5, 50), (20, 85), (23, 85)]",
+                "column": "('RP', 2.1, 50, 1.8)",
+                "flow_rate": 0.1,
+                "temp": 40,
+                "rt": 120,
+                "source": "metlin",
+                "method_number": 1,
+            }
+        ]
+    )
+
+    normalized = normalize_retina_frame(raw)
+
+    assert normalized.loc[0, "source_dataset"] == "ReTiNA:metlin"
+    assert normalized.loc[0, "rt_min"] == 2.0
+    assert normalized.loc[0, "column_name"] == "RP column 2.1 x 50 mm, 1.8 um"
+    assert normalized.loc[0, "stationary_phase_type"] == "reversed phase"
+    assert normalized.loc[0, "mobile_phase_b"] == "100% acetonitrile + 0.1% formic acid"
+    assert normalized.loc[0, "total_runtime_min"] == 23
+    assert "license=MIT" in normalized.loc[0, "notes"]
+
+
+def test_normalize_kaggle_metlin_frame_maps_known_smrt_method_and_rt_units():
+    raw = pd.DataFrame(
+        [
+            {"Name": "Caffeine", "SMILES": "Cn1cnc2c1c(=O)n(C)c(=O)n2C", "rt": 180.0},
+            {"Name": "Aspirin", "SMILES": "CC(=O)Oc1ccccc1C(=O)O", "rt": 300.0},
+        ]
+    )
+
+    normalized = normalize_kaggle_metlin_frame(raw)
+
+    assert list(normalized["compound_name"]) == ["Caffeine", "Aspirin"]
+    assert normalized.loc[0, "source_dataset"] == "Kaggle_METLIN_SMRT"
+    assert normalized.loc[0, "rt_min"] == 3.0
+    assert normalized.loc[0, "column_chemistry"] == "C18"
+    assert normalized.loc[0, "total_runtime_min"] == 23
+    assert "Kaggle METLIN SMRT" in normalized.loc[0, "notes"]
+
+
+def test_import_kaggle_metlin_export_writes_processed_csv(tmp_path):
+    source = tmp_path / "metlin.csv"
+    pd.DataFrame([{"SMILES": "CCO", "RT": 60.0}]).to_csv(source, index=False)
+
+    output = import_kaggle_metlin_export(source, processed_dir=tmp_path, output_name="unit_metlin")
+    normalized = pd.read_csv(output)
+
+    assert output.name == "external_unit_metlin.csv"
+    assert normalized.loc[0, "source_dataset"] == "Kaggle_METLIN_SMRT"
+    assert normalized.loc[0, "rt_min"] == 1.0
+
+
+def test_normalize_metlin_smrt_figshare_frame_derives_smiles_from_inchi():
+    raw = pd.DataFrame(
+        [
+            {
+                "pubchem": 702,
+                "rt": 180.0,
+                "inchi": "InChI=1S/C2H6O/c1-2-3/h3H,2H2,1H3",
+            },
+            {
+                "pubchem": 0,
+                "rt": 10.0,
+                "inchi": "not an inchi",
+            },
+        ]
+    )
+
+    normalized, rejected = normalize_metlin_smrt_figshare_frame(raw, return_rejected=True)
+
+    assert len(normalized) == 1
+    assert len(rejected) == 1
+    assert normalized.loc[0, "compound_name"] == "PubChem CID 702"
+    assert normalized.loc[0, "smiles"] == "CCO"
+    assert normalized.loc[0, "rt_min"] == 3.0
+    assert normalized.loc[0, "ion_mode"] == "both"
+    assert rejected.loc[0, "reason"] == "rdkit_inchi_conversion_failed"
+
+
+def test_kaggle_descriptor_only_export_aligns_to_figshare_identity(tmp_path):
+    figshare = tmp_path / "SMRT_dataset.csv"
+    pd.DataFrame(
+        [
+            {"pubchem": 1, "rt": 60.0, "inchi": "InChI=1S/H2O/h1H2"},
+            {"pubchem": 702, "rt": 180.0, "inchi": "InChI=1S/C2H6O/c1-2-3/h3H,2H2,1H3"},
+            {"pubchem": 962, "rt": 240.0, "inchi": "InChI=1S/H2O/h1H2"},
+        ]
+    ).to_csv(figshare, sep=";", index=False)
+    descriptors = pd.DataFrame([{"MolWt": 46.07, "TPSA": 20.23, "rt": 180.0}])
+
+    normalized, sidecar = normalize_kaggle_metlin_descriptors_with_figshare(
+        descriptors,
+        figshare_csv=figshare,
+        return_descriptors=True,
+    )
+
+    assert len(normalized) == 1
+    assert normalized.loc[0, "source_record_id"] == "PubChem:702"
+    assert normalized.loc[0, "smiles"] == "CCO"
+    assert sidecar.loc[0, "source_record_id"] == "PubChem:702"
+    assert sidecar.loc[0, "MolWt"] == 46.07
 
 
 def test_normalize_mcmrt_workbook_melts_rt_matrix(tmp_path):
