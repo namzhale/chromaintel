@@ -75,6 +75,7 @@ streamlit run app/gui/streamlit_app.py
 ```
 
 The GUI includes Dataset Assembly and Training pages. Forward Prediction and Method Recommendation automatically use `data/processed/models/trained_forward_bundle.joblib` when present, then fall back to the older baseline or transparent heuristic.
+Trained predictions also expose applicability-domain flags and reasons based on saved training feature ranges and categorical values.
 
 Run the API:
 

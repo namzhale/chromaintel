@@ -1,6 +1,8 @@
 import pandas as pd
 
 from app.models.training import _candidate_models, train_forward_models
+from app.schemas.method import GradientStep, MethodInput, MSSettingsInput
+from app.services.predictor import ForwardPredictor
 
 
 def _training_matrix(row_count: int = 18) -> pd.DataFrame:
@@ -89,3 +91,38 @@ def test_train_forward_models_exports_sota_metadata_and_feature_importance(tmp_p
 
     predictions = pd.read_csv(tmp_path / "reports" / "test_predictions.csv")
     assert {"rt_error_min", "abs_rt_error_min", "ad_flag", "ad_reason"}.issubset(predictions.columns)
+
+
+def test_trained_predictor_uses_bundle_applicability_domain(tmp_path):
+    model_dir = tmp_path / "models"
+    train_forward_models(
+        _training_matrix(),
+        artifact_path=model_dir / "trained_forward_bundle.joblib",
+        report_dir=tmp_path / "reports",
+        plots_dir=tmp_path / "plots",
+    )
+    predictor = ForwardPredictor(artifact_path=model_dir)
+    method = MethodInput(
+        column="Novel Biphenyl 50x2.1 mm",
+        stationary_phase="reversed phase",
+        mobile_phase_a="Water + 0.1% formic acid",
+        mobile_phase_b="Acetonitrile + 0.1% formic acid",
+        ph=3.2,
+        temperature_c=40.0,
+        flow_rate_ml_min=0.3,
+        injection_volume_ul=2.0,
+        gradient_steps=[
+            GradientStep(time_min=0.0, percent_b=5.0),
+            GradientStep(time_min=5.0, percent_b=95.0),
+        ],
+    )
+
+    result = predictor.predict(
+        {"smiles": "CCO", "name": "ethanol"},
+        method,
+        MSSettingsInput(ionization_mode="positive", precursor_mz=101.0),
+    )
+
+    assert result["out_of_domain"] is True
+    assert result["out_of_domain_method"] == "training_feature_ranges"
+    assert any("unseen category" in reason for reason in result["out_of_domain_reasons"])

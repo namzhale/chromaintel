@@ -85,6 +85,33 @@ class TrainedForwardModelBundle:
             "model_name": self.metadata.get("best_rt_model", "trained forward model"),
         }
 
+    def applicability_domain_check(self, feature_row: dict[str, Any]) -> dict[str, Any]:
+        """Check a prediction row against training-domain metadata."""
+
+        domain = self.metadata.get("applicability_domain") or {}
+        numeric_ranges = domain.get("numeric_ranges", {})
+        categorical_values = domain.get("categorical_values", {})
+        reasons: list[str] = []
+        for feature, bounds in numeric_ranges.items():
+            value = pd.to_numeric(feature_row.get(feature), errors="coerce")
+            if pd.isna(value):
+                continue
+            lower = bounds.get("min")
+            upper = bounds.get("max")
+            if lower is not None and float(value) < float(lower):
+                reasons.append(f"{feature} below training range ({float(value):.3g} < {float(lower):.3g})")
+            if upper is not None and float(value) > float(upper):
+                reasons.append(f"{feature} above training range ({float(value):.3g} > {float(upper):.3g})")
+        for feature, allowed in categorical_values.items():
+            value = feature_row.get(feature)
+            if pd.notna(value) and str(value) not in set(allowed):
+                reasons.append(f"{feature} unseen category ({value})")
+        return {
+            "out_of_domain": bool(reasons),
+            "reasons": reasons,
+            "method": domain.get("method", "training_feature_ranges"),
+        }
+
     def save(self, path: str | Path) -> None:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -160,6 +187,7 @@ def train_forward_models(
         }
     }
     feature_importance = _permutation_importance(rt_model, test, feature_columns)
+    applicability_domain = _applicability_domain_metadata(train, numeric, categorical)
     validation_metadata = {
         "split_strategy": "random_holdout_with_source_metadata",
         "source_counts": {
@@ -185,6 +213,7 @@ def train_forward_models(
         "rt_uncertainty_method": uncertainty_metadata["rt"]["method"],
         "validation_metadata": validation_metadata,
         "uncertainty_metadata": uncertainty_metadata,
+        "applicability_domain": applicability_domain,
         "feature_importance": feature_importance.to_dict("records"),
         "rt_metrics": _metrics_payload(rt_results),
         "quality_metrics": _metrics_payload(quality_results),
@@ -534,6 +563,34 @@ def _add_applicability_domain_flags(
     flagged["ad_flag"] = ad_flags
     flagged["ad_reason"] = ad_reasons
     return flagged
+
+
+def _applicability_domain_metadata(
+    train: pd.DataFrame,
+    numeric_features: list[str],
+    categorical_features: list[str],
+) -> dict[str, Any]:
+    """Build training-domain metadata for prediction-time out-of-domain checks."""
+
+    numeric_ranges: dict[str, dict[str, float | None]] = {}
+    for feature in numeric_features:
+        if feature not in train:
+            continue
+        values = pd.to_numeric(train[feature], errors="coerce")
+        numeric_ranges[feature] = {
+            "min": float(values.min()) if values.notna().any() else None,
+            "max": float(values.max()) if values.notna().any() else None,
+        }
+    categorical_values = {
+        feature: sorted(str(value) for value in train[feature].dropna().unique())
+        for feature in categorical_features
+        if feature in train
+    }
+    return {
+        "method": "training_feature_ranges",
+        "numeric_ranges": numeric_ranges,
+        "categorical_values": categorical_values,
+    }
 
 
 def _sota_markdown(metadata: dict[str, Any]) -> str:

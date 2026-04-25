@@ -38,14 +38,17 @@ class ForwardPredictor:
             pred = self._trained_bundle.predict(features)
             confidence = pred["confidence"]
             model_note = f"trained {pred['model_name']}"
+            domain_check = self._trained_bundle.applicability_domain_check(features)
         elif self._bundle:
             pred = self._bundle.predict(features)
             confidence = 0.72
             model_note = "trained RandomForest baseline"
+            domain_check = self._heuristic_domain_check(features)
         else:
             pred = self._heuristic_predict(features)
             confidence = 0.42
             model_note = "descriptor/condition heuristic fallback"
+            domain_check = self._heuristic_domain_check(features)
 
         risks = self._risk_components(pred["quality_score"], features, ms_settings)
         return {
@@ -53,7 +56,9 @@ class ForwardPredictor:
             "quality_score": round(pred["quality_score"], 3),
             "confidence": confidence,
             "uncertainty_rt_min": round(float(pred.get("uncertainty_rt_min", 0.0)), 3),
-            "out_of_domain": self._out_of_domain(features),
+            "out_of_domain": bool(domain_check["out_of_domain"]),
+            "out_of_domain_reasons": domain_check["reasons"],
+            "out_of_domain_method": domain_check["method"],
             "risks": risks,
             "feature_summary": {
                 "model": model_note,
@@ -108,10 +113,19 @@ class ForwardPredictor:
         )
 
     @staticmethod
-    def _out_of_domain(features: dict[str, Any]) -> bool:
-        return bool(
-            features.get("ph", 7.0) < 1.5
-            or features.get("ph", 7.0) > 10.5
-            or features.get("flow_ml_min", features.get("flow_rate_ml_min", 0.3)) > 1.5
-            or features.get("total_runtime_min", features.get("runtime_min", 5.0)) > 30
-        )
+    def _heuristic_domain_check(features: dict[str, Any]) -> dict[str, Any]:
+        checks = [
+            ("ph", features.get("ph", 7.0), 1.5, 10.5),
+            ("flow_ml_min", features.get("flow_ml_min", features.get("flow_rate_ml_min", 0.3)), 0.0, 1.5),
+            ("total_runtime_min", features.get("total_runtime_min", features.get("runtime_min", 5.0)), 0.0, 30.0),
+        ]
+        reasons = [
+            f"{name} outside heuristic range ({value} not in {lower}-{upper})"
+            for name, value, lower, upper in checks
+            if value < lower or value > upper
+        ]
+        return {
+            "out_of_domain": bool(reasons),
+            "reasons": reasons,
+            "method": "heuristic_bounds",
+        }

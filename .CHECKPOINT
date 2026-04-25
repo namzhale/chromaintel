@@ -19,9 +19,10 @@ Latest autonomous heartbeat progress:
 - Added `scripts/fetch_public_datasets.py --list-sources`.
 - Added tests for manifest contract and local CSV/TSV/JSONL public imports.
 - Hardened column chemistry inference for nullable and alias-derived public rows.
+- Added trained-bundle applicability-domain metadata and wired `ForwardPredictor` to return AD reasons from model metadata.
 
 Next session should:
 
 1. Read `.PLAN`.
-2. Continue Milestone A by adding reviewed public RT sample imports beyond RepoRT dataset 0001, or start C-light by adding trained-bundle applicability-domain use in predictions.
+2. Continue Milestone A by adding reviewed public RT sample imports beyond RepoRT dataset 0001, or continue Milestone D with recommendation score decomposition and AD penalties.
 3. Verify, commit, and push a small milestone.
