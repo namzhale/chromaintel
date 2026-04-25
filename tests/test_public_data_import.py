@@ -288,6 +288,7 @@ def test_assemble_dataset_accepts_additional_processed_source(tmp_path):
         source_path=primary,
         output_dir=tmp_path / "processed",
         templates_dir=tmp_path / "templates",
+        reports_dir=tmp_path / "reports",
         additional_sources=[extra],
     )
     master = pd.read_csv(outputs.master_path)

@@ -36,7 +36,7 @@ python scripts/train_baselines.py
 Build the unified canonical dataset and model matrix:
 
 ```powershell
-python scripts/assemble_dataset.py
+python scripts/assemble_dataset.py --source-profile expanded_ml
 ```
 
 This writes:
@@ -49,10 +49,10 @@ This writes:
 Train the multi-model forward pipeline and generate evaluation outputs:
 
 ```powershell
-python scripts/train_models.py
+python scripts/train_models.py --feature-set core --quick
 ```
 
-This trains Ridge, RandomForest, ExtraTrees, HistGradientBoosting, XGBoost, and CatBoost models for RT and provisional peak quality. Model selection uses GroupKFold by compound identity, then writes:
+The full command without `--quick` trains the complete available model zoo. Quick mode is the current practical CPU path for the expanded 213,941-row local matrix; it trains Ridge, RandomForest, ExtraTrees, and HistGradientBoosting for RT and provisional peak quality while preserving grouped/source/method/column-family diagnostics. Model selection uses GroupKFold by compound identity, then writes:
 
 - `data/processed/models/trained_forward_bundle.joblib`
 - `reports/model_training_summary.md`
@@ -172,7 +172,15 @@ python scripts/fetch_public_datasets.py `
   --output-name kaggle_metlin_descriptors
 ```
 
-Large public downloads and descriptor sidecars are intentionally ignored by git. See `reports/public_dataset_expansion_summary.md` and `docs/data_sources/retina_and_kaggle_metlin.md` for row counts and provenance notes.
+Prepare dependency-light graph/SMILES-transformer manifests for later DL experiments:
+
+```powershell
+python scripts/prepare_dl_datasets.py
+```
+
+This writes ignored local manifests under `data/processed/dl/` and records dependency availability in `reports/benchmarks/dl_dataset_prep_report.json`. Neural model training remains optional and dependency-gated.
+
+Large public downloads, DL manifests, and descriptor sidecars are intentionally ignored by git. See `reports/public_dataset_expansion_summary.md` and `docs/data_sources/retina_and_kaggle_metlin.md` for row counts and provenance notes.
 
 Fixture-based public RT adapter coverage is available for PredRet-style, GMCRT-style, and multi-condition RT supplementary tables. These paths are designed for reviewed local CSV/TSV/XLSX exports rather than unreviewed scraping. See:
 
@@ -188,13 +196,19 @@ python scripts/extract_lcms_entities.py --stdin-text "Caffeine on C18 column, rt
 
 The literature parser is offline-first. The `--use-llm` flag is reserved for a future opt-in extractor and does not call an LLM in this MVP.
 
-Current checked-in processed training matrix after RepoRT plus MCMRT expansion:
+Latest expanded local training build:
 
+- `data/processed/external_retina_hf_full.csv`: 119,039 ReTiNA rows from public Hugging Face export
+- `data/processed/external_metlin_smrt_figshare.csv`: 79,957 METLIN SMRT Figshare canonical rows
 - `data/processed/external_mcmrt_supplement.csv`: 10,073 MCMRT RT rows from 30 reversed-phase methods
-- `data/processed/master_dataset.csv`: 15,052 rows, 3,945 compounds
-- `data/processed/model_matrix.csv`: 15,052 rows x 41 columns
-- selected RT model after retraining: `extra_trees`
-- validation: GroupKFold by `inchikey` plus source-family holdout for RepoRT and MCMRT
+- `data/processed/external_report_bulk_5k.csv`: 5,000 RepoRT rows
+- `data/processed/external_kaggle_metlin_descriptors_descriptors.csv`: 77,901 Kaggle/METLIN descriptor sidecar rows
+- `data/processed/master_dataset.csv`: 213,941 local rows after canonical merge/deduplication
+- `data/processed/model_matrix.csv`: 213,941 local rows x 43 columns
+- selected quick-mode RT model after retraining: `extra_trees`
+- validation: GroupKFold by `inchikey`, final grouped holdout, plus source-family, method, and column-family holdouts
+
+The expanded `master_dataset.csv`, `model_matrix.csv`, and trained bundle are large generated local artifacts. They are reproducible from the commands above and should not be staged into normal git commits until an artifact/LFS policy is introduced.
 
 ## Internal Lab Onboarding
 

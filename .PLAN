@@ -6,9 +6,10 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 
 - Repo is public at `https://github.com/namzhale/chromaintel`.
 - Latest major implemented layer: public RT fixture adapters, canonical registry docs, enrichment fixtures, method-conditioned evaluation, and optional graph/transformer stubs.
-- Current verified tests: `63 passed` with project `.venv`.
-- Current trained demo artifact exists at `data/processed/models/trained_forward_bundle.joblib`.
-- Current processed model matrix is 15,052 rows and 3,945 compounds after RepoRT plus MCMRT expansion; quality target still provisional.
+- Current verified tests after the expanded data/model slice: `77 passed` with project `.venv`.
+- Current trained demo artifact exists locally at `data/processed/models/trained_forward_bundle.joblib`; the expanded artifact is too large for normal git commits and should stay local until an artifact/LFS policy exists.
+- Current expanded local training matrix is 213,941 rows and 202,834 compounds after ReTiNA, METLIN SMRT Figshare, RepoRT, MCMRT, and mock/internal seed assembly; quality target still provisional.
+- Large generated local artifacts are intentionally dirty/uncommitted unless explicitly staged through an artifact workflow: `data/processed/master_dataset.csv`, `data/processed/model_matrix.csv`, and `data/processed/models/trained_forward_bundle.joblib`.
 
 ## Milestone A: Data Expansion And Canonical Ingestion
 
@@ -54,17 +55,18 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 ## Milestone F: Release Discipline
 
 - [ ] Run full verification in `.VERIFY`.
-- [ ] Update README with any new commands.
-- [ ] Regenerate reports intentionally.
-- [ ] Commit the milestone.
-- [ ] Push `main`.
+- [x] Update README with ReTiNA/METLIN/Kaggle and expanded quick-training commands.
+- [x] Regenerate reports intentionally for the expanded local run.
+- [x] Commit the expanded data/model-prep milestone.
+- [x] Push `main`.
 
 ## Next Recommended Slice
 
 Next high-value slice:
 
-1. Wire method/column-family holdout metrics into the Russian PDF dashboard.
-2. Run optional Morgan comparison artifact if CPU time is acceptable.
-3. Add GUI/API release polish: local-public import preview, source metrics, AD flags, and uncertainty interval views.
-4. Smoke-test Streamlit and FastAPI locally.
-5. Run full tests, training, commit, push.
+1. Add an artifact/LFS policy or export manifest for the 213,941-row local dataset and 188 MB trained bundle.
+2. Wire method/column-family holdout metrics into the Russian PDF dashboard.
+3. Run optional Morgan comparison artifact if CPU time is acceptable.
+4. Add GUI/API release polish: local-public import preview, source metrics, AD flags, and uncertainty interval views.
+5. Smoke-test Streamlit and FastAPI locally.
+6. Run full tests, training, commit, push.
