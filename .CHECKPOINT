@@ -1,0 +1,20 @@
+# ChromaIntel Checkpoint
+
+Last autonomous checkpoint target:
+
+- Continue from commit `923592c Add SOTA training and data extraction pipeline`.
+- Heartbeat automation: `continue-chromaintel-autonomously`, every 30 minutes, current thread.
+- Do not conclude the project is complete. The next useful work is in `.PLAN`.
+
+Current known state:
+
+- Full tests passed with `.venv`: 15 tests.
+- Dataset assembly and training commands passed.
+- SOTA-for-MVP CPU training exists, but the demo dataset is still tiny.
+- Real next value is more data, stronger validation, trained-bundle AD use, recommendation score decomposition, and API/GUI smoke coverage.
+
+Next session should:
+
+1. Read `.PLAN`.
+2. Start Milestone A or C-light.
+3. Verify, commit, and push a small milestone.

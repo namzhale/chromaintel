@@ -1,0 +1,67 @@
+# ChromaIntel Continuation Plan
+
+This file is the autonomous backlog. Work top-down. Mark an item done only after code/docs/artifacts are updated, verification passes, and the milestone is committed.
+
+## Current Baseline
+
+- Repo is public at `https://github.com/namzhale/chromaintel`.
+- Latest major implemented layer: SOTA-oriented CPU training and data extraction pipeline.
+- Current verified tests: `15 passed` with project `.venv`.
+- Current trained demo artifact exists at `data/processed/models/trained_forward_bundle.joblib`.
+- Current model report is demo-only: 12 rows, 8 compounds, weak RT generalization, quality target still provisional.
+
+## Milestone A: Data Expansion And Canonical Ingestion
+
+- [ ] Add additional reviewed public RT sample imports beyond RepoRT dataset 0001.
+- [ ] Add a public-source manifest with source name, URL, license, expected fields, adapter status, and known missingness.
+- [ ] Extend local public import tests for CSV, TSV, JSON/JSONL, and XLSX where dependencies allow.
+- [ ] Add a canonical merge command that can combine multiple processed external samples with internal/mock data.
+- [ ] Preserve full provenance for every external row.
+
+## Milestone B: Internal Lab Onboarding Maturity
+
+- [ ] Add `docs/internal_lab_onboarding.md` with realistic BE workflow instructions.
+- [ ] Add template examples for accepted, failed, low intensity, poor resolution, and carryover cases.
+- [ ] Add validation for gradient consistency, ion mode vocabulary, matrix vocabulary, and required MS transition fields when ion mode is known.
+- [ ] Add an import preview report that summarizes missingness, invalid rows, and duplicate runs.
+
+## Milestone C: Modeling And SOTA Path
+
+- [ ] Add grouped validation when enough rows exist; group by `inchikey`, `source_dataset`, and method family.
+- [ ] Add optional CatBoost/LightGBM/XGBoost support with graceful skip when packages are absent.
+- [ ] Add Morgan fingerprint feature option in training CLI and compare with descriptor-only training.
+- [ ] Add applicability-domain metadata to the persisted bundle and use it in `ForwardPredictor._out_of_domain`.
+- [ ] Add conformal interval reporting by source/matrix/column family once calibration rows exist.
+- [ ] Add a research note for future GNN/Transformer transfer learning architecture and required data volume.
+
+## Milestone D: Recommendation Engine Upgrade
+
+- [ ] Add score decomposition to recommendation outputs: RT fit, quality, runtime penalty, confidence, AD penalty.
+- [ ] Make search-space bounds configurable from a checked-in YAML/JSON settings file.
+- [ ] Add candidate constraints for available columns, solvent systems, pH range, flow range, temperature range, and max runtime.
+- [ ] Penalize out-of-domain candidates from trained bundle metadata.
+- [ ] Add tests for ranking stability and score decomposition.
+
+## Milestone E: GUI/API Release Polish
+
+- [ ] Add GUI import preview for literature-extracted and local-public processed CSVs.
+- [ ] Add Model Evaluation page views for source metrics, feature significance, AD flags, and uncertainty interval.
+- [ ] Add API tests for prediction, recommendation, and dataset browser endpoints.
+- [ ] Smoke-test Streamlit and FastAPI locally.
+- [ ] Add screenshots or placeholder screenshots only after GUI smoke passes.
+
+## Milestone F: Release Discipline
+
+- [ ] Run full verification in `.VERIFY`.
+- [ ] Update README with any new commands.
+- [ ] Regenerate reports intentionally.
+- [ ] Commit the milestone.
+- [ ] Push `main`.
+
+## Next Recommended Slice
+
+Start with Milestone A plus C-light:
+
+1. Add a public-source manifest and tests around `scripts/fetch_public_datasets.py`.
+2. Add optional fingerprint training flag or bundle applicability-domain metadata.
+3. Run full tests, training, commit, push.

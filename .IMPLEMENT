@@ -1,0 +1,71 @@
+# ChromaIntel Autonomous Implementation Protocol
+
+Use this protocol for every autonomous continuation.
+
+## 1. Orient
+
+```powershell
+cd C:\study\cheminf\pract\lcms_method_mvp
+git status --short
+git log --oneline --decorate -5
+.\.venv\Scripts\python.exe -m pytest tests -q
+```
+
+Read `.PLAN` and choose one bounded slice. Do not start a broad rewrite.
+
+## 2. Dispatch Parallel Agents When Useful
+
+Only dispatch agents for independent tasks. Example:
+
+- Data agent writes only `app/adapters`, `scripts/fetch_public_datasets.py`, `data/raw/public_sources`, `data/processed`, and `reports`.
+- Model agent writes only `app/models/training.py`, model tests, and training reports.
+- GUI agent writes only `app/gui/streamlit_app.py` and GUI docs/tests.
+- Parser agent writes only `app/adapters/literature_parser.py`, `scripts/extract_lcms_entities.py`, parser tests, and parser reports.
+
+Every agent prompt must include:
+
+- "Do not stage, commit, push, create branches, edit remotes, or revert unrelated work."
+- "Use `.\.venv\Scripts\python.exe`."
+- "Return changed files and exact verification results."
+
+## 3. Implement Locally
+
+Prefer small, testable edits. Keep data layer, modeling layer, GUI layer, and scripts modular.
+
+Use `apply_patch` for manual code edits. Do not rewrite unrelated files. If generated artifacts are updated, be able to explain why they are intentional.
+
+## 4. Verify
+
+Run the relevant targeted tests first, then the full checks from `.VERIFY`.
+
+At minimum before commit:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests -q
+.\.venv\Scripts\python.exe scripts\assemble_dataset.py
+.\.venv\Scripts\python.exe scripts\train_models.py
+.\.venv\Scripts\python.exe -m py_compile app\models\training.py app\gui\streamlit_app.py scripts\train_models.py
+```
+
+## 5. Commit And Push
+
+```powershell
+git status --short
+git diff --check
+git add <intentional files>
+git commit -m "<clear milestone message>"
+git push origin main
+```
+
+If checks fail, do not commit. Fix or document the blocker.
+
+## 6. Final Response Shape
+
+Report:
+
+- what changed
+- verification results
+- commit hash and push status, if committed
+- the next unfinished item from `.PLAN`
+
+Do not say the whole project is finished unless `.PLAN` is fully complete.

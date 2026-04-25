@@ -1,0 +1,77 @@
+# ChromaIntel Verification Matrix
+
+Use project `.venv` only.
+
+## Required Before Any Milestone Commit
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests -q
+.\.venv\Scripts\python.exe -m py_compile app\models\training.py app\gui\streamlit_app.py app\adapters\literature_parser.py scripts\fetch_public_datasets.py scripts\extract_lcms_entities.py scripts\train_models.py
+git diff --check
+```
+
+## Dataset Assembly
+
+```powershell
+.\.venv\Scripts\python.exe scripts\assemble_dataset.py
+```
+
+Expected outputs:
+
+- `data/processed/master_dataset.csv`
+- `data/processed/model_matrix.csv`
+- `data/templates/internal_lab_historical_runs_template.csv`
+- `data/templates/internal_lab_data_dictionary.md`
+
+## Training And Reports
+
+```powershell
+.\.venv\Scripts\python.exe scripts\train_models.py
+```
+
+Expected outputs:
+
+- `data/processed/models/trained_forward_bundle.joblib`
+- `reports/model_training_summary.md`
+- `reports/test_predictions.csv`
+- `reports/feature_importance.csv`
+- `reports/source_metrics.csv`
+- `reports/sota_model_experiments.md`
+
+## Public Data Import Smoke
+
+```powershell
+.\.venv\Scripts\python.exe scripts\fetch_public_datasets.py --local-export data\raw\public_sources\report_0001_rtdata_canonical_success.tsv --source-name RepoRT:local-smoke --source-url https://github.com/michaelwitting/RepoRT --license-note CC-BY-SA-4.0 --rows 2 --output-name local_smoke
+```
+
+Expected output:
+
+- `data/processed/external_local_smoke_sample.csv`
+
+## Literature Parser Smoke
+
+```powershell
+.\.venv\Scripts\python.exe scripts\extract_lcms_entities.py --stdin-text "Caffeine was analyzed on a Waters BEH C18 column. Mobile phase A was water with 0.1% formic acid and mobile phase B was acetonitrile with 0.1% formic acid. The gradient ran from 5% B to 95% B over 8 min at 0.3 mL/min and 40 C. Injection volume was 2 uL. ESI+ MRM transition 195.1 > 138.1 gave retention time 2.4 min." --source-name smoke --json --output data\processed\literature_extracted_smoke.csv
+```
+
+Expected output:
+
+- one canonical row
+- no API key printed
+- `data/processed/literature_extracted_smoke.csv`
+
+## Optional Manual Smoke
+
+FastAPI:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn app.api.main:app --host 127.0.0.1 --port 8001
+```
+
+Streamlit:
+
+```powershell
+.\.venv\Scripts\python.exe -m streamlit run app/gui/streamlit_app.py --server.headless true --server.port 8501
+```
+
+Stop long-running servers before ending the turn unless the user asked to keep them running.

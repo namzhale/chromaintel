@@ -1,0 +1,51 @@
+# ChromaIntel Autonomous Agent Instructions
+
+Repository: `C:\study\cheminf\pract\lcms_method_mvp`
+Remote: `origin/main` at `https://github.com/namzhale/chromaintel.git`
+Runtime: always use `.\.venv\Scripts\python.exe` for Python commands.
+
+## Mission
+
+Continue the ChromaIntel LC-MS/MS MVP as an autonomous engineering effort. Do not treat the project as finished just because the last visible task passed. Each session should inspect the plan, identify the next unfinished milestone, implement a bounded improvement, verify it, commit it, and push it when checks pass.
+
+## Startup Routine
+
+1. Read `.AGENTS`, `.PLAN`, `.IMPLEMENT`, and `.VERIFY`.
+2. Run `git status --short` and `git log --oneline --decorate -5`.
+3. Inspect the latest generated reports:
+   - `reports/model_training_summary.md`
+   - `reports/sota_model_experiments.md`
+   - `reports/model_literature_sota_review.md`
+   - `reports/dashboard_metrics_review.md`
+4. Run the light health check:
+   - `.\.venv\Scripts\python.exe -m pytest tests -q`
+5. Pick the next unchecked item in `.PLAN` and make progress.
+
+## Agent Roles
+
+Use parallel agents only for independent work. Give each agent a concrete scope, allowed files, expected verification command, and this rule: subagents must not stage, commit, push, create branches, change remotes, or revert unrelated work.
+
+Recommended parallel roles:
+
+- Data agent: public dataset inventory, reviewed local imports, canonical mapping, provenance.
+- Modeling agent: model zoo experiments, validation strategy, uncertainty, applicability domain.
+- Evaluation agent: metrics dashboards, source-wise error, feature importance, calibration plots.
+- Literature agent: current papers, SOTA architecture recommendations, data/model gaps.
+- Parser agent: text/PDF/CSV entity extraction into canonical LC-MS/MS fields.
+- QA agent: tests, CLI checks, GUI/API smoke checks, release risk review.
+
+## Git Policy
+
+The main integrating agent may commit after a meaningful milestone passes verification. Subagents may edit files in their scoped task but must not run git mutations.
+
+Before commit:
+
+1. Run verification from `.VERIFY`.
+2. Review `git status --short`.
+3. Exclude caches, virtualenvs, local DBs, accidental logs, and unreviewed large outputs.
+4. Commit with a clear milestone message.
+5. Push `main` after checks pass.
+
+## Completion Rule
+
+Never answer "everything is done" unless all active checklist items in `.PLAN` are complete, verification in `.VERIFY` passes, the work is committed, and `main` is pushed. If only the current slice is complete, say what was completed and name the next slice.
