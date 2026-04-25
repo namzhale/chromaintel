@@ -5,6 +5,7 @@ import sys
 from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
+from typing import Any
 from urllib.request import urlopen
 
 import pandas as pd
@@ -15,12 +16,14 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.schemas.dataset import CANONICAL_DATASET_COLUMNS
+from app.services.dataset_assembly import normalize_source_frame
 
 RAW_DIR = PROJECT_ROOT / "data" / "raw" / "public_sources"
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 
 REPORT_BASE = "https://raw.githubusercontent.com/michaelwitting/RepoRT/master/processed_data"
 REPORT_DATASET_ID = "0001"
+MINIMAL_PUBLIC_RT_COLUMNS = {"compound_name", "rt_min"}
 
 @dataclass(frozen=True)
 class RepoRTFiles:
@@ -44,6 +47,52 @@ def fetch_report_sample(
     files = _download_report_files(dataset_id, raw_dir)
     normalized = normalize_report(files, dataset_id, rows)
     output_path = processed_dir / f"external_report_{dataset_id}_sample.csv"
+    normalized.to_csv(output_path, index=False)
+    return output_path
+
+
+def import_local_public_export(
+    path: str | Path,
+    source_name: str,
+    source_url: str,
+    license_note: str,
+    rows: int | None = None,
+    processed_dir: Path = PROCESSED_DIR,
+    output_name: str | None = None,
+) -> Path:
+    """Normalize a small, user-approved public RT/MS export into the canonical schema.
+
+    This is intentionally local-file based so sources with mixed licenses or bulky raw
+    downloads can be reviewed before ingestion.
+    """
+
+    processed_dir.mkdir(parents=True, exist_ok=True)
+    source_path = Path(path)
+    raw = _read_public_table(source_path)
+    if rows is not None:
+        raw = raw.head(rows)
+
+    normalization_input = _with_normalizer_placeholders(raw)
+    normalized = normalize_source_frame(normalization_input, source_dataset=source_name)
+    for placeholder_column in ["column_name", "column_chemistry", "stationary_phase_type"]:
+        normalized[placeholder_column] = normalized[placeholder_column].mask(
+            normalized[placeholder_column].eq(""), pd.NA
+        )
+    _validate_minimal_public_rt(normalized, source_path)
+    normalized["notes"] = normalized["notes"].map(
+        lambda note: _append_note(
+            note,
+            (
+                "local public export import; "
+                f"source_url={source_url}; license={license_note}; "
+                f"source_file={source_path.name}"
+            ),
+        )
+    )
+    normalized["missing_fields_count"] = normalized[CANONICAL_DATASET_COLUMNS[:-1]].isna().sum(axis=1)
+
+    safe_name = output_name or _safe_source_name(source_name)
+    output_path = processed_dir / f"external_{safe_name}_sample.csv"
     normalized.to_csv(output_path, index=False)
     return output_path
 
@@ -125,9 +174,54 @@ def _download_report_files(dataset_id: str, raw_dir: Path) -> RepoRTFiles:
     return RepoRTFiles(**frames)
 
 
+def _read_public_table(path: Path) -> pd.DataFrame:
+    suffix = path.suffix.lower()
+    if suffix in {".json", ".jsonl", ".ndjson"}:
+        try:
+            return pd.read_json(path, lines=suffix in {".jsonl", ".ndjson"})
+        except ValueError:
+            return pd.read_json(path)
+    if suffix in {".xlsx", ".xls"}:
+        return pd.read_excel(path)
+    if suffix in {".tsv", ".tab"}:
+        return pd.read_csv(path, sep="\t")
+    return pd.read_csv(path, sep=None, engine="python")
+
+
+def _with_normalizer_placeholders(frame: pd.DataFrame) -> pd.DataFrame:
+    prepared = frame.copy()
+    for column in ["column_name", "column_chemistry", "stationary_phase_type"]:
+        if column not in prepared:
+            prepared[column] = ""
+    return prepared
+
+
+def _validate_minimal_public_rt(frame: pd.DataFrame, path: Path) -> None:
+    missing = {
+        column
+        for column in MINIMAL_PUBLIC_RT_COLUMNS
+        if column not in frame or frame[column].isna().all()
+    }
+    if missing:
+        raise ValueError(
+            f"{path} does not contain usable public RT rows after normalization; "
+            f"missing populated columns: {sorted(missing)}"
+        )
+
+
 def _fetch_text(url: str) -> str:
     with urlopen(url, timeout=30) as response:
         return response.read().decode("utf-8")
+
+
+def _append_note(existing: Any, note: str) -> str:
+    text = "" if pd.isna(existing) else str(existing).strip()
+    return f"{text}; {note}" if text else note
+
+
+def _safe_source_name(source_name: str) -> str:
+    safe = "".join(char.lower() if char.isalnum() else "_" for char in source_name)
+    return "_".join(part for part in safe.split("_") if part) or "public_export"
 
 
 def _phase_label(metadata: pd.Series, phase: str) -> str:
@@ -230,12 +324,31 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Fetch tiny public LC-MS RT datasets for offline MVP samples.")
     parser.add_argument("--report-id", default=REPORT_DATASET_ID, help="RepoRT processed_data dataset id.")
     parser.add_argument("--rows", type=int, default=10, help="Number of RT rows to normalize.")
+    parser.add_argument(
+        "--local-export",
+        type=Path,
+        help="Small, already-authorized public CSV/TSV/JSON/XLSX export to normalize instead of downloading RepoRT.",
+    )
+    parser.add_argument("--source-name", default="public_export", help="Source label for --local-export rows.")
+    parser.add_argument("--source-url", default="", help="Original public source URL for provenance notes.")
+    parser.add_argument("--license-note", default="reviewed before local import", help="License/provenance note.")
+    parser.add_argument("--output-name", help="Optional processed filename stem after external_.")
     return parser
 
 
 def main() -> int:
     args = _parser().parse_args()
-    output = fetch_report_sample(args.report_id, args.rows)
+    if args.local_export:
+        output = import_local_public_export(
+            args.local_export,
+            source_name=args.source_name,
+            source_url=args.source_url,
+            license_note=args.license_note,
+            rows=args.rows,
+            output_name=args.output_name,
+        )
+    else:
+        output = fetch_report_sample(args.report_id, args.rows)
     print(f"Wrote {output}")
     return 0
 

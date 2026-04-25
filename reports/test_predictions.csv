@@ -1,4 +1,4 @@
-compound_name,source_dataset,rt_min,quality_score,predicted_rt_min,predicted_quality_score,rt_error_min
-Atorvastatin,METLIN_SMRT,7.25,0.74,2.243864212566642,0.7164468200358708,-5.006135787433358
-Atenolol,RepoRT,3.2,0.68,0.7462097080459689,0.7755653818333603,-2.4537902919540313
-Caffeine,internal_lab,1.35,0.91,2.591811496672224,0.8216553724470325,1.241811496672224
+compound_name,source_dataset,rt_min,quality_score,predicted_rt_min,predicted_quality_score,rt_error_min,abs_rt_error_min,ad_flag,ad_reason
+Atorvastatin,METLIN_SMRT,7.25,0.74,2.243864212566642,0.7164468200358708,-5.006135787433358,5.006135787433358,False,inside_training_range
+Atenolol,RepoRT,3.2,0.68,0.7462097080459689,0.7755653818333603,-2.4537902919540313,2.4537902919540313,False,inside_training_range
+Caffeine,internal_lab,1.35,0.91,2.591811496672224,0.8216553724470325,1.241811496672224,1.241811496672224,False,inside_training_range

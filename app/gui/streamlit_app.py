@@ -30,6 +30,8 @@ MASTER_DATASET_PATH = PROCESSED_DIR / "master_dataset.csv"
 MODEL_MATRIX_PATH = PROCESSED_DIR / "model_matrix.csv"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 FEATURE_IMPORTANCE_PATH = REPORTS_DIR / "feature_importance.csv"
+TEST_PREDICTIONS_PATH = REPORTS_DIR / "test_predictions.csv"
+SOURCE_METRICS_PATH = REPORTS_DIR / "source_metrics.csv"
 TRAINED_MODEL_PATH = PROCESSED_DIR / "models" / "trained_forward_bundle.joblib"
 MOCK_TRAINING_RECORDS_PATH = PROJECT_ROOT / "data" / "mock_training_records.csv"
 TEMPLATES_DIR = PROJECT_ROOT / "data" / "templates"
@@ -94,6 +96,79 @@ def _metrics_frame(metrics: dict[str, dict[str, float]]) -> pd.DataFrame:
     if not metrics:
         return pd.DataFrame()
     return pd.DataFrame(metrics).T.reset_index(names="model").round(3)
+
+
+def _render_training_artifacts() -> None:
+    predictions = _read_csv(TEST_PREDICTIONS_PATH)
+    source_metrics = _read_csv(SOURCE_METRICS_PATH)
+    importance = _read_csv(FEATURE_IMPORTANCE_PATH)
+
+    if predictions is not None and not predictions.empty:
+        st.subheader("Held-out RT validation")
+        if "abs_rt_error_min" not in predictions and "rt_error_min" in predictions:
+            predictions["abs_rt_error_min"] = predictions["rt_error_min"].abs()
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Test rows", len(predictions))
+        c2.metric("RT MAE", f"{predictions['abs_rt_error_min'].mean():.2f} min")
+        c3.metric("RT RMSE", f"{(predictions['rt_error_min'].pow(2).mean() ** 0.5):.2f} min")
+        c4.metric("AD flags", int(predictions["ad_flag"].sum()) if "ad_flag" in predictions else "n/a")
+        scatter = px.scatter(
+            predictions,
+            x="rt_min",
+            y="predicted_rt_min",
+            color="source_dataset" if "source_dataset" in predictions else None,
+            hover_data=[col for col in ["compound_name", "rt_error_min", "ad_reason"] if col in predictions],
+            title="Predicted vs actual RT",
+        )
+        axis_min = float(min(predictions["rt_min"].min(), predictions["predicted_rt_min"].min()))
+        axis_max = float(max(predictions["rt_min"].max(), predictions["predicted_rt_min"].max()))
+        scatter.add_shape(type="line", x0=axis_min, x1=axis_max, y0=axis_min, y1=axis_max, line={"dash": "dash"})
+        st.plotly_chart(scatter, use_container_width=True)
+        st.plotly_chart(
+            px.histogram(
+                predictions,
+                x="rt_error_min",
+                color="source_dataset" if "source_dataset" in predictions else None,
+                title="RT residuals",
+            ),
+            use_container_width=True,
+        )
+        worst = predictions.sort_values("abs_rt_error_min", ascending=False)
+        st.dataframe(
+            worst[[col for col in ["compound_name", "source_dataset", "rt_min", "predicted_rt_min", "rt_error_min", "abs_rt_error_min", "ad_flag", "ad_reason"] if col in worst]],
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.info("No held-out prediction artifact yet. Train the forward models to create reports/test_predictions.csv.")
+
+    if source_metrics is not None and not source_metrics.empty:
+        st.subheader("Source-wise errors")
+        st.plotly_chart(px.bar(source_metrics, x="source_dataset", y="rt_mae", title="RT MAE by source"), use_container_width=True)
+        st.dataframe(source_metrics.round(3), use_container_width=True, hide_index=True)
+
+    if importance is not None and not importance.empty:
+        st.subheader("Permutation importance / parameter significance")
+        top_importance = importance.head(20)
+        st.plotly_chart(
+            px.bar(
+                top_importance,
+                x="importance_mean",
+                y="feature",
+                error_x="importance_std" if "importance_std" in top_importance else None,
+                color="significance" if "significance" in top_importance else None,
+                orientation="h",
+                title="RT permutation importance",
+            ),
+            use_container_width=True,
+        )
+        display_cols = [
+            col
+            for col in ["feature", "feature_group", "importance_mean", "importance_std", "importance_z", "significance"]
+            if col in importance
+        ]
+        st.dataframe(importance[display_cols].round(3), use_container_width=True, hide_index=True)
+        st.caption("Permutation importance is computed on the held-out RT split; weak or negative values are unstable diagnostics on tiny test sets.")
 
 
 def _issue_frame(issues: list[Any]) -> pd.DataFrame:
@@ -228,6 +303,8 @@ def dashboard() -> None:
         )
     else:
         st.dataframe(records.head(25), use_container_width=True, hide_index=True)
+    st.divider()
+    _render_training_artifacts()
 
 
 def dataset_assembly_page() -> None:
@@ -357,6 +434,8 @@ def training_page() -> None:
             use_container_width=True,
         )
         st.dataframe(importance, use_container_width=True, hide_index=True)
+    st.divider()
+    _render_training_artifacts()
 
 
 def compound_lookup() -> None:

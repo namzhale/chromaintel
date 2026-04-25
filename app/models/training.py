@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
+from sklearn.ensemble import ExtraTreesRegressor, HistGradientBoostingRegressor, RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.inspection import permutation_importance
 from sklearn.linear_model import Ridge
@@ -45,6 +45,9 @@ class TrainingSummary:
     feature_columns: list[str]
     artifact_path: str
     report_path: str
+    feature_importance_path: str
+    validation_metadata: dict[str, Any]
+    uncertainty_metadata: dict[str, Any]
 
 
 class TrainedForwardModelBundle:
@@ -70,13 +73,15 @@ class TrainedForwardModelBundle:
         frame = pd.DataFrame([{column: feature_row.get(column) for column in self.feature_columns}])
         rt = float(self.rt_model.predict(frame)[0])
         quality = float(np.clip(self.quality_model.predict(frame)[0], 0, 1))
-        residual_std = float(self.metadata.get("rt_residual_std", 1.0))
-        confidence = float(np.clip(1.0 / (1.0 + residual_std / max(rt, 0.1)), 0.35, 0.92))
+        uncertainty = float(self.metadata.get("rt_conformal_q90_min", self.metadata.get("rt_residual_std", 1.0)))
+        confidence = float(np.clip(1.0 / (1.0 + uncertainty / max(rt, 0.1)), 0.35, 0.92))
         return {
             "predicted_rt_min": max(rt, 0.1),
             "quality_score": quality,
             "confidence": confidence,
-            "uncertainty_rt_min": residual_std,
+            "uncertainty_rt_min": uncertainty,
+            "rt_interval_min": [max(rt - uncertainty, 0.1), rt + uncertainty],
+            "uncertainty_method": self.metadata.get("rt_uncertainty_method", "residual_proxy"),
             "model_name": self.metadata.get("best_rt_model", "trained forward model"),
         }
 
@@ -142,13 +147,44 @@ def train_forward_models(
     test_predictions = test[["compound_name", "source_dataset", "rt_min", "quality_score"]].copy()
     test_predictions["predicted_rt_min"] = rt_model.predict(test[feature_columns])
     test_predictions["predicted_quality_score"] = np.clip(quality_model.predict(test[feature_columns]), 0, 1)
-    residual_std = float(np.std(test_predictions["predicted_rt_min"] - test_predictions["rt_min"]))
+    test_predictions["rt_error_min"] = test_predictions["predicted_rt_min"] - test_predictions["rt_min"]
+    test_predictions["abs_rt_error_min"] = test_predictions["rt_error_min"].abs()
+    test_predictions = _add_applicability_domain_flags(test_predictions, test, usable, numeric)
+    residual_std = float(np.std(test_predictions["rt_error_min"]))
+    validation_rt_error = rt_model.predict(validation[feature_columns]) - validation["rt_min"]
+    uncertainty_metadata = {
+        "rt": {
+            "method": "split_conformal_abs_residual_q90",
+            "q90_min": float(np.quantile(np.abs(validation_rt_error), 0.9)),
+            "residual_std_min": residual_std,
+        }
+    }
     feature_importance = _permutation_importance(rt_model, test, feature_columns)
+    validation_metadata = {
+        "split_strategy": "random_holdout_with_source_metadata",
+        "source_counts": {
+            "train": _source_counts(train),
+            "validation": _source_counts(validation),
+            "test": _source_counts(test),
+        },
+        "group_column": "inchikey" if "inchikey" in usable.columns else "compound_name",
+    }
+    validation_metadata["group_overlap_counts"] = _group_overlap_counts(
+        train,
+        validation,
+        test,
+        str(validation_metadata["group_column"]),
+    )
 
     metadata = {
         "best_rt_model": best_rt_name,
         "best_quality_model": best_quality_name,
+        "candidate_models": list(models.keys()),
         "rt_residual_std": residual_std,
+        "rt_conformal_q90_min": uncertainty_metadata["rt"]["q90_min"],
+        "rt_uncertainty_method": uncertainty_metadata["rt"]["method"],
+        "validation_metadata": validation_metadata,
+        "uncertainty_metadata": uncertainty_metadata,
         "feature_importance": feature_importance.to_dict("records"),
         "rt_metrics": _metrics_payload(rt_results),
         "quality_metrics": _metrics_payload(quality_results),
@@ -180,6 +216,9 @@ def train_forward_models(
         feature_columns=feature_columns,
         artifact_path=str(artifact_path),
         report_path=str(report_path),
+        feature_importance_path=str(Path(report_dir) / "feature_importance.csv"),
+        validation_metadata=validation_metadata,
+        uncertainty_metadata=uncertainty_metadata,
     )
 
 
@@ -199,7 +238,10 @@ def generate_training_outputs(
     plots_dir.mkdir(parents=True, exist_ok=True)
 
     test_predictions = test_predictions.copy()
-    test_predictions["rt_error_min"] = test_predictions["predicted_rt_min"] - test_predictions["rt_min"]
+    if "rt_error_min" not in test_predictions:
+        test_predictions["rt_error_min"] = test_predictions["predicted_rt_min"] - test_predictions["rt_min"]
+    if "abs_rt_error_min" not in test_predictions:
+        test_predictions["abs_rt_error_min"] = test_predictions["rt_error_min"].abs()
     px.scatter(
         test_predictions,
         x="rt_min",
@@ -214,12 +256,7 @@ def generate_training_outputs(
         color="source_dataset",
         title="RT Error Distribution",
     ).write_html(plots_dir / "rt_error_distribution.html")
-    source_perf = (
-        test_predictions.assign(abs_error=lambda df: df["rt_error_min"].abs())
-        .groupby("source_dataset", dropna=False)["abs_error"]
-        .mean()
-        .reset_index(name="rt_mae")
-    )
+    source_perf = _source_metrics(test_predictions)
     px.bar(source_perf, x="source_dataset", y="rt_mae", title="Source-wise RT MAE").write_html(
         plots_dir / "source_wise_performance.html"
     )
@@ -235,6 +272,8 @@ def generate_training_outputs(
     report.write_text(_report_markdown(model_matrix, metadata, source_perf), encoding="utf-8")
     test_predictions.to_csv(report_dir / "test_predictions.csv", index=False)
     feature_importance.to_csv(report_dir / "feature_importance.csv", index=False)
+    source_perf.to_csv(report_dir / "source_metrics.csv", index=False)
+    (report_dir / "sota_model_experiments.md").write_text(_sota_markdown(metadata), encoding="utf-8")
     return report
 
 
@@ -250,6 +289,12 @@ def _candidate_models(categorical: list[str], numeric: list[str]) -> dict[str, P
             [
                 ("prep", _preprocessor(categorical, numeric)),
                 ("model", RandomForestRegressor(n_estimators=180, random_state=42, min_samples_leaf=1)),
+            ]
+        ),
+        "extra_trees": Pipeline(
+            [
+                ("prep", _preprocessor(categorical, numeric)),
+                ("model", ExtraTreesRegressor(n_estimators=240, random_state=42, min_samples_leaf=1)),
             ]
         ),
         "hist_gradient_boosting": Pipeline(
@@ -327,7 +372,8 @@ def _metrics_payload(results: dict[str, dict[str, Any]]) -> dict[str, dict[str, 
 
 def _permutation_importance(model: Pipeline, test: pd.DataFrame, feature_columns: list[str]) -> pd.DataFrame:
     if len(test) < 2:
-        return pd.DataFrame({"feature": feature_columns, "importance_mean": 0.0, "importance_std": 0.0})
+        frame = pd.DataFrame({"feature": feature_columns, "importance_mean": 0.0, "importance_std": 0.0})
+        return _annotate_importance(frame)
     result = permutation_importance(
         model,
         test[feature_columns],
@@ -336,7 +382,7 @@ def _permutation_importance(model: Pipeline, test: pd.DataFrame, feature_columns
         random_state=42,
         scoring="neg_mean_absolute_error",
     )
-    return (
+    importance = (
         pd.DataFrame(
             {
                 "feature": feature_columns,
@@ -347,6 +393,159 @@ def _permutation_importance(model: Pipeline, test: pd.DataFrame, feature_columns
         .sort_values("importance_mean", ascending=False)
         .reset_index(drop=True)
     )
+    return _annotate_importance(importance)
+
+
+def _annotate_importance(importance: pd.DataFrame) -> pd.DataFrame:
+    annotated = importance.copy()
+    annotated["feature_group"] = annotated["feature"].map(_feature_group)
+    annotated["importance_z"] = annotated.apply(
+        lambda row: float(row["importance_mean"] / row["importance_std"])
+        if row["importance_std"]
+        else 0.0,
+        axis=1,
+    )
+    annotated["significance"] = annotated.apply(_importance_significance, axis=1)
+    return annotated
+
+
+def _feature_group(feature: str) -> str:
+    descriptor_features = {
+        "molecular_weight",
+        "logp",
+        "tpsa",
+        "hbond_donors",
+        "hbond_acceptors",
+        "rotatable_bonds",
+        "aromatic_ring_count",
+        "formal_charge",
+        "heavy_atom_count",
+        "fraction_csp3",
+    }
+    lc_numeric = {
+        "ph",
+        "temperature_c",
+        "flow_ml_min",
+        "injection_ul",
+        "initial_organic_pct",
+        "final_organic_pct",
+        "gradient_duration_min",
+        "total_runtime_min",
+        "gradient_slope_percent_b_min",
+    }
+    lc_categorical = {
+        "column_name",
+        "column_chemistry",
+        "stationary_phase_type",
+        "mobile_phase_a",
+        "mobile_phase_b",
+        "mobile_phase_system",
+    }
+    ms_features = {"ion_mode", "precursor_mz", "product_mz"}
+    if feature in descriptor_features:
+        return "compound_descriptor"
+    if feature in lc_numeric:
+        return "lc_numeric"
+    if feature in lc_categorical:
+        return "lc_categorical"
+    if feature in ms_features:
+        return "ms_setting"
+    return "other"
+
+
+def _importance_significance(row: pd.Series) -> str:
+    mean = float(row["importance_mean"])
+    std = float(row["importance_std"])
+    z_score = float(row["importance_z"])
+    if mean < 0:
+        return "negative"
+    if mean > 0 and (std == 0 or z_score >= 2):
+        return "positive"
+    if mean > 0 and z_score >= 1:
+        return "weak_positive"
+    return "neutral_or_unstable"
+
+
+def _source_counts(frame: pd.DataFrame) -> dict[str, int]:
+    if "source_dataset" not in frame:
+        return {}
+    return {str(source): int(count) for source, count in frame["source_dataset"].value_counts(dropna=False).items()}
+
+
+def _group_overlap_counts(
+    train: pd.DataFrame,
+    validation: pd.DataFrame,
+    test: pd.DataFrame,
+    group_column: str,
+) -> dict[str, int]:
+    if group_column not in train or group_column not in validation or group_column not in test:
+        return {"train_validation": 0, "train_test": 0, "validation_test": 0}
+    train_groups = {str(value) for value in train[group_column].dropna().unique()}
+    validation_groups = {str(value) for value in validation[group_column].dropna().unique()}
+    test_groups = {str(value) for value in test[group_column].dropna().unique()}
+    return {
+        "train_validation": len(train_groups & validation_groups),
+        "train_test": len(train_groups & test_groups),
+        "validation_test": len(validation_groups & test_groups),
+    }
+
+
+def _source_metrics(test_predictions: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+    for source, group in test_predictions.groupby("source_dataset", dropna=False):
+        errors = group["rt_error_min"]
+        abs_errors = errors.abs()
+        rows.append(
+            {
+                "source_dataset": source,
+                "n_test": int(len(group)),
+                "rt_mae": float(abs_errors.mean()),
+                "rt_rmse": float((errors.pow(2).mean()) ** 0.5),
+                "mean_bias": float(errors.mean()),
+                "median_abs_error": float(abs_errors.median()),
+                "ad_flagged": int(group["ad_flag"].sum()) if "ad_flag" in group else 0,
+            }
+        )
+    return pd.DataFrame(rows).sort_values(["rt_mae", "source_dataset"], ascending=[False, True]).reset_index(drop=True)
+
+
+def _add_applicability_domain_flags(
+    predictions: pd.DataFrame,
+    test: pd.DataFrame,
+    reference: pd.DataFrame,
+    numeric_features: list[str],
+) -> pd.DataFrame:
+    flagged = predictions.copy()
+    numeric_ranges = {
+        feature: (reference[feature].min(), reference[feature].max())
+        for feature in numeric_features
+        if feature in reference and pd.api.types.is_numeric_dtype(reference[feature])
+    }
+    ad_flags = []
+    ad_reasons = []
+    for _, row in test.iterrows():
+        reasons = []
+        for feature, (lower, upper) in numeric_ranges.items():
+            value = row.get(feature)
+            if pd.notna(value) and (value < lower or value > upper):
+                reasons.append(f"{feature} outside training range")
+        ad_flags.append(bool(reasons))
+        ad_reasons.append("; ".join(reasons) if reasons else "inside_training_range")
+    flagged["ad_flag"] = ad_flags
+    flagged["ad_reason"] = ad_reasons
+    return flagged
+
+
+def _sota_markdown(metadata: dict[str, Any]) -> str:
+    rt_metrics = _markdown_table(pd.DataFrame(metadata["rt_metrics"]).T.round(3).reset_index(names="model"))
+    return f"""# SOTA Model Experiments
+
+This bounded experiment compares CPU-practical tabular regressors for the current demo RT matrix.
+
+{rt_metrics}
+
+ExtraTrees is included as a low-dependency nonlinear baseline. Treat all scores as diagnostics until larger source-aware splits are available.
+"""
 
 
 def _report_markdown(model_matrix: pd.DataFrame, metadata: dict[str, Any], source_perf: pd.DataFrame) -> str:
@@ -370,6 +569,7 @@ The model uses RDKit compound descriptors, simplified LC gradient encodings, col
 
 - Linear baseline: Ridge regression
 - RandomForestRegressor
+- ExtraTreesRegressor
 - HistGradientBoostingRegressor
 
 ## Best Models
@@ -389,17 +589,22 @@ The model uses RDKit compound descriptors, simplified LC gradient encodings, col
 
 {source_table}
 
+## Parameter Significance
+
+`reports/feature_importance.csv` contains permutation importance for the selected RT model with feature groups, z-like stability scores, and significance labels: `positive`, `weak_positive`, `neutral_or_unstable`, and `negative`. These labels are diagnostic only on the current small held-out split.
+
 ## Recommendation Proxy Metrics
 
 - Top-k success proxy: candidates are ranked by target RT fit, provisional quality, runtime penalty, and confidence bonus.
 - Mean predicted quality score is reported in the GUI recommendation cards.
 - Uncertainty proxy: RT residual standard deviation on the test split, currently {metadata['rt_residual_std']:.3f} min.
+- Split-conformal q90 absolute RT residual: {metadata['uncertainty_metadata']['rt']['q90_min']:.3f} min.
 
 ## Current Limitations
 
 - The checked-in dataset is a small mock/demo set, not yet a validated internal laboratory history.
 - Public RT datasets often lack peak quality, matrix, sample preparation, and MS transition metadata.
-- Peak quality is provisional. {metadata['provisional_quality_note']}
+- {metadata['provisional_quality_note']}
 - Source-aware validation is reported by source distribution and source-wise error; larger datasets should use source holdout splits.
 
 ## Next Steps

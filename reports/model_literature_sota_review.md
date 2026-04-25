@@ -24,7 +24,7 @@ Carver should prioritize data that preserves the full experimental context, not 
 
 ### Immediate warning for the main agent
 
-The current canonical schema includes peak metrics but does not include a preserved explicit `quality_score` source field. In the assembled demo matrix, `quality_score` is constant at 0.55 for all rows, so the current quality model is only a placeholder. Carver should collect quality labels and peak metrics, and the engineering pipeline should later preserve explicit quality labels through assembly.
+The current canonical schema now preserves `quality_score` when it is present and computes a transparent proxy when it is absent. The checked-in demo data is still too small for a reliable peak-quality model, so Carver should prioritize real accepted/rejected peak labels, peak metrics, and failure reasons from internal assay development runs.
 
 ## Existing Pipeline Observations
 
@@ -41,9 +41,9 @@ Files inspected:
 The implemented MVP trainer is appropriate for a CPU demo:
 
 - RT target: `rt_min`
-- Quality target: `quality_score`, currently not useful because all demo rows are 0.55 after assembly.
+- Quality target: `quality_score`, using observed labels when present and a provisional proxy from peak metrics when labels are missing.
 - Features: 10 RDKit descriptors, 9 LC numeric summaries, 6 LC categorical/mobile-phase fields, and 3 MS features.
-- Models: Ridge, RandomForestRegressor, HistGradientBoostingRegressor.
+- Models: Ridge, RandomForestRegressor, ExtraTreesRegressor, HistGradientBoostingRegressor.
 - Selection: lowest validation MAE, with 60/20/20 train/validation/test split for 12 usable rows.
 - Artifact: `data/processed/models/trained_forward_bundle.joblib`
 - Report outputs: `reports/model_training_summary.md`, `reports/test_predictions.csv`, `reports/feature_importance.csv`, and HTML plots.
@@ -53,7 +53,7 @@ Important limitations:
 - The checked-in demo dataset has only 12 rows and 8 compounds.
 - Validation and test splits are 3 rows each, so rankings are unstable.
 - Public-like rows and internal rows are mixed in random splits. Larger datasets should use grouped/source-aware splits by compound, method, source, and preferably time.
-- Current uncertainty is a global residual standard deviation. It is not calibrated per prediction and does not check applicability domain.
+- Current uncertainty includes a split-conformal q90 residual proxy plus held-out applicability-domain flags. This is still a demo diagnostic, not a fully calibrated per-condition interval.
 - `gradient_profile` exists upstream but is collapsed to start/end/duration/slope in the model matrix. Full gradients will matter for method optimization.
 
 ## Literature and Market Scan
@@ -63,6 +63,10 @@ Important limitations:
 METLIN SMRT is still the most relevant public small-molecule LC-MS RT reference. The 2019 Nature Communications paper reports a large METLIN-derived retention-time dataset and a deep learning model for small molecules, with strong top-k identification utility in LC-MS metabolomics. Source: [Zhou et al., 2019, Nature Communications](https://www.nature.com/articles/s41467-019-13680-7).
 
 RepoRT is a 2023 Nature Methods resource explicitly aimed at standardized reporting and public reuse of small-molecule RT records. It is important because it emphasizes chromatographic metadata, not just compound structures. Source: [Stanstrup et al., 2023, Nature Methods](https://www.nature.com/articles/s41592-023-02143-z); dataset/code links are at [the RepoRT GitHub organization](https://github.com/Report-workflow).
+
+MCMRT is a newer multi-column metabolite chromatographic retention-time dataset and is relevant for expanding beyond single-method RT prediction toward cross-column transfer. Source: [Scientific Data search result / article family](https://www.nature.com/search?q=MCMRT%20metabolite%20chromatographic%20retention%20time).
+
+ROASMI is a recent retention-order/application-domain approach for small molecule identification. It is useful for ChromaIntel because retention order can be more transferable than absolute RT across methods. Source: [ROASMI, Journal of Cheminformatics](https://link.springer.com/article/10.1186/s13321-025-00968-8).
 
 Graph neural networks have been applied directly to LC retention time from molecular graphs. The 2021 ACS Analytical Chemistry paper "Prediction of Liquid Chromatographic Retention Time with Graph Neural Networks" is a primary GNN reference for this space. Source: [ACS Analytical Chemistry, 2021](https://pubs.acs.org/doi/10.1021/acs.analchem.1c02363).
 
@@ -95,7 +99,7 @@ LightGBM, XGBoost, and CatBoost are the right near-term external libraries to ev
 1. Keep the current Ridge/RF/HGB CPU baseline as the demo benchmark. It is transparent and dependency-light.
 2. Add source-aware and group-aware evaluation before adding heavier models. Suggested split keys: `inchikey`, `source_dataset`, `column_name`, `mobile_phase_system`, and later `instrument_platform`.
 3. Preserve explicit quality labels through dataset assembly. Current quality metrics are not meaningful until this is fixed.
-4. Add a no-new-dependency ensemble candidate such as `ExtraTreesRegressor` for RT only. The quick experiment below suggests it is worth including as a cheap baseline, but not enough to change product claims.
+4. Keep the no-new-dependency `ExtraTreesRegressor` candidate in the model zoo. The current run includes it, but the tiny validation split does not justify product claims.
 5. Add applicability-domain checks:
    - compound AD from descriptor/fingerprint nearest-neighbor distance
    - method AD from unseen column/mobile-phase/instrument categories

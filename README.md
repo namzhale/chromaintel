@@ -8,7 +8,7 @@ Practical local MVP for bioanalytical small-molecule LC-MS/MS method development
 - RDKit descriptor pipeline: MW, logP, TPSA, HBD/HBA, rotatable bonds, aromatic rings, charge, heavy atoms, and Morgan fingerprints.
 - Offline-first adapters for internal lab templates, METLIN SMRT, RepoRT, ChEMBL, MassBank, and MoNA.
 - PubChem enrichment client for name or CID lookup.
-- RandomForest baseline training for RT and quality score using mock records.
+- Multi-model CPU training for RT and provisional quality using Ridge, RandomForest, ExtraTrees, and HistGradientBoosting.
 - Heuristic fallback predictions so the GUI remains useful before model artifacts exist.
 - Recommendation engine that generates candidate methods and ranks them by RT fit, quality, and runtime.
 - Streamlit pages: Dashboard, Compound lookup, Forward prediction, Method recommendation, Dataset browser, Model evaluation, Admin/import.
@@ -50,12 +50,14 @@ Train the multi-model forward pipeline and generate evaluation outputs:
 python scripts/train_models.py
 ```
 
-This trains Ridge, RandomForest, and HistGradientBoosting models for RT and provisional peak quality, then writes:
+This trains Ridge, RandomForest, ExtraTrees, and HistGradientBoosting models for RT and provisional peak quality, then writes:
 
 - `data/processed/models/trained_forward_bundle.joblib`
 - `reports/model_training_summary.md`
 - `reports/test_predictions.csv`
 - `reports/feature_importance.csv`
+- `reports/source_metrics.csv`
+- `reports/sota_model_experiments.md`
 - reproducible Plotly HTML plots under `data/processed/plots/`
 
 Run the GUI:
@@ -111,6 +113,25 @@ The MVP avoids blocking on private resources or scraping. Public and optional so
 
 Internal lab files should map to the normalized record columns used in `data/mock_training_records.csv`. Raw exports can be staged in `data/raw/`; cleaned model-ready tables can go in `data/processed/`.
 
+Normalize a reviewed local public export without scraping:
+
+```powershell
+python scripts/fetch_public_datasets.py `
+  --local-export data\raw\public_sources\some_rt_export.tsv `
+  --source-name RepoRT:reviewed `
+  --source-url https://github.com/michaelwitting/RepoRT `
+  --license-note CC-BY-SA-4.0
+```
+
+Extract conservative LC-MS/MS entities from reviewed text snippets:
+
+```powershell
+python scripts/extract_lcms_entities.py snippets.txt --source-name paper_batch_001
+python scripts/extract_lcms_entities.py --stdin-text "Caffeine on C18 column, rt 2.4 min." --json
+```
+
+The literature parser is offline-first. The `--use-llm` flag is reserved for a future opt-in extractor and does not call an LLM in this MVP.
+
 ## Internal Lab Onboarding
 
 Generate the practical CSV template and data dictionary:
@@ -136,6 +157,9 @@ The generated report at `reports/model_training_summary.md` contains:
 - best RT and quality models
 - MAE, RMSE, and R2 metrics
 - source-wise performance
+- split-conformal q90 RT uncertainty proxy
+- applicability-domain flags for held-out predictions
+- permutation importance with parameter significance labels
 - limitations and next steps for internal fine-tuning
 
 ## Testing
@@ -147,6 +171,10 @@ python -m pytest tests
 Current tests cover:
 
 - RDKit descriptor calculation and invalid SMILES handling.
+- Dataset schema normalization and merge logic.
+- Internal lab import validation.
+- Training model zoo, uncertainty metadata, source metrics, and feature significance.
+- Literature parser extraction into canonical fields.
 - Recommendation candidate ranking and method runtime calculation.
 
 ## Notes for real lab integration
