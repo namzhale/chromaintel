@@ -176,7 +176,8 @@ def _infer_column_chemistry(row: pd.Series) -> object:
     existing = row.get("column_chemistry")
     if pd.notna(existing):
         return existing
-    column = str(row.get("column_name") or "").upper()
+    column_value = row.get("column_name")
+    column = "" if pd.isna(column_value) else str(column_value).upper()
     if "C18" in column:
         return "C18"
     if "PHENYL" in column:
@@ -190,7 +191,8 @@ def _infer_stationary_phase_type(row: pd.Series) -> object:
     existing = row.get("stationary_phase_type")
     if pd.notna(existing):
         return existing
-    chemistry = str(row.get("column_chemistry") or "").upper()
+    chemistry_value = row.get("column_chemistry")
+    chemistry = "" if pd.isna(chemistry_value) else str(chemistry_value).upper()
     if "HILIC" in chemistry:
         return "HILIC"
     if chemistry:

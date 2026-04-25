@@ -13,8 +13,8 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 ## Milestone A: Data Expansion And Canonical Ingestion
 
 - [ ] Add additional reviewed public RT sample imports beyond RepoRT dataset 0001.
-- [ ] Add a public-source manifest with source name, URL, license, expected fields, adapter status, and known missingness.
-- [ ] Extend local public import tests for CSV, TSV, JSON/JSONL, and XLSX where dependencies allow.
+- [x] Add a public-source manifest with source name, URL, license, expected fields, adapter status, and known missingness.
+- [x] Extend local public import tests for CSV, TSV, JSON/JSONL, and XLSX where dependencies allow.
 - [ ] Add a canonical merge command that can combine multiple processed external samples with internal/mock data.
 - [ ] Preserve full provenance for every external row.
 
@@ -62,6 +62,6 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 
 Start with Milestone A plus C-light:
 
-1. Add a public-source manifest and tests around `scripts/fetch_public_datasets.py`.
+1. Add more reviewed public RT sample imports beyond RepoRT dataset 0001.
 2. Add optional fingerprint training flag or bundle applicability-domain metadata.
 3. Run full tests, training, commit, push.

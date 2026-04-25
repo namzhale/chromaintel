@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "source_name": "RepoRT",
+      "url": "https://github.com/Report-workflow/RepoRT",
+      "license": "CC-BY-SA-4.0 for processed datasets; verify per dataset before redistribution",
+      "expected_fields": [
+        "compound_name",
+        "smiles",
+        "inchikey",
+        "rt_min",
+        "column_name",
+        "mobile_phase_a",
+        "mobile_phase_b",
+        "gradient_profile",
+        "temperature_c",
+        "flow_ml_min"
+      ],
+      "adapter_status": "implemented_sample_fetch_and_local_import",
+      "known_missingness": [
+        "peak_area",
+        "peak_height",
+        "sn_ratio",
+        "asymmetry",
+        "resolution",
+        "matrix",
+        "precursor_mz",
+        "product_mz"
+      ],
+      "ingestion_mode": "reviewed_local_export_or_small_processed_sample"
+    },
+    {
+      "source_name": "METLIN_SMRT",
+      "url": "https://www.nature.com/articles/s41467-019-13680-7",
+      "license": "publication and dataset terms must be reviewed before redistribution",
+      "expected_fields": [
+        "compound_name",
+        "smiles",
+        "rt_min"
+      ],
+      "adapter_status": "offline_template_placeholder",
+      "known_missingness": [
+        "bioanalytical_matrix",
+        "sample_preparation",
+        "peak_quality_metrics",
+        "ms_transitions"
+      ],
+      "ingestion_mode": "offline_csv_after_license_review"
+    },
+    {
+      "source_name": "MCMRT",
+      "url": "https://www.nature.com/articles/s41597-024-03780-5",
+      "license": "review article and data repository terms before redistribution",
+      "expected_fields": [
+        "compound_name",
+        "smiles",
+        "rt_min",
+        "column_name",
+        "chromatographic_method"
+      ],
+      "adapter_status": "candidate_source_not_yet_implemented",
+      "known_missingness": [
+        "bioanalytical_matrix",
+        "internal_standard",
+        "ms_transitions",
+        "peak_quality_metrics"
+      ],
+      "ingestion_mode": "reviewed_local_export"
+    },
+    {
+      "source_name": "MetabolomicsWorkbench_RT_Search",
+      "url": "https://www.metabolomicsworkbench.org/data/search_rt_form.php",
+      "license": "review study-level terms before use",
+      "expected_fields": [
+        "compound_name",
+        "rt_min",
+        "study_id"
+      ],
+      "adapter_status": "candidate_source_not_yet_implemented",
+      "known_missingness": [
+        "consistent_smiles",
+        "full_gradient",
+        "column_metadata",
+        "peak_quality_metrics"
+      ],
+      "ingestion_mode": "manual_reviewed_export_only"
+    },
+    {
+      "source_name": "Internal_Lab_Historical_Runs",
+      "url": "local_template:data/templates/internal_lab_historical_runs_template.csv",
+      "license": "internal confidential data; do not redistribute without approval",
+      "expected_fields": [
+        "run_id",
+        "compound_name",
+        "smiles",
+        "matrix",
+        "column_name",
+        "mobile_phase_a",
+        "mobile_phase_b",
+        "ion_mode",
+        "precursor_mz",
+        "product_mz",
+        "rt_min",
+        "quality_score",
+        "success_flag"
+      ],
+      "adapter_status": "implemented_template_and_validation",
+      "known_missingness": [],
+      "ingestion_mode": "validated_internal_csv"
+    }
+  ]
+}

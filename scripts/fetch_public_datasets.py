@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from dataclasses import dataclass
 from io import StringIO
@@ -20,10 +21,21 @@ from app.services.dataset_assembly import normalize_source_frame
 
 RAW_DIR = PROJECT_ROOT / "data" / "raw" / "public_sources"
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+PUBLIC_SOURCE_MANIFEST = PROJECT_ROOT / "data" / "public_source_manifest.json"
 
 REPORT_BASE = "https://raw.githubusercontent.com/michaelwitting/RepoRT/master/processed_data"
 REPORT_DATASET_ID = "0001"
 MINIMAL_PUBLIC_RT_COLUMNS = {"compound_name", "rt_min"}
+
+REQUIRED_MANIFEST_FIELDS = {
+    "source_name",
+    "url",
+    "license",
+    "expected_fields",
+    "adapter_status",
+    "known_missingness",
+    "ingestion_mode",
+}
 
 @dataclass(frozen=True)
 class RepoRTFiles:
@@ -31,6 +43,25 @@ class RepoRTFiles:
     rtdata: pd.DataFrame
     gradient: pd.DataFrame
     info: pd.DataFrame
+
+
+def load_public_source_manifest(path: str | Path = PUBLIC_SOURCE_MANIFEST) -> list[dict[str, Any]]:
+    """Load and validate the reviewed public-source manifest."""
+
+    manifest_path = Path(path)
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    sources = payload.get("sources", [])
+    if not isinstance(sources, list) or not sources:
+        raise ValueError(f"{manifest_path} must contain a non-empty 'sources' list")
+    for index, source in enumerate(sources, start=1):
+        missing = REQUIRED_MANIFEST_FIELDS - set(source)
+        if missing:
+            raise ValueError(f"Manifest source #{index} is missing fields: {sorted(missing)}")
+        if not isinstance(source["expected_fields"], list) or not source["expected_fields"]:
+            raise ValueError(f"Manifest source #{index} expected_fields must be a non-empty list")
+        if not isinstance(source["known_missingness"], list):
+            raise ValueError(f"Manifest source #{index} known_missingness must be a list")
+    return sources
 
 
 def fetch_report_sample(
@@ -190,9 +221,11 @@ def _read_public_table(path: Path) -> pd.DataFrame:
 
 def _with_normalizer_placeholders(frame: pd.DataFrame) -> pd.DataFrame:
     prepared = frame.copy()
-    for column in ["column_name", "column_chemistry", "stationary_phase_type"]:
+    if "column_name" not in prepared and "column" not in prepared:
+        prepared["column_name"] = pd.NA
+    for column in ["column_chemistry", "stationary_phase_type"]:
         if column not in prepared:
-            prepared[column] = ""
+            prepared[column] = pd.NA
     return prepared
 
 
@@ -333,11 +366,26 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--source-url", default="", help="Original public source URL for provenance notes.")
     parser.add_argument("--license-note", default="reviewed before local import", help="License/provenance note.")
     parser.add_argument("--output-name", help="Optional processed filename stem after external_.")
+    parser.add_argument(
+        "--manifest",
+        type=Path,
+        default=PUBLIC_SOURCE_MANIFEST,
+        help="Reviewed public-source manifest to print when --list-sources is used.",
+    )
+    parser.add_argument("--list-sources", action="store_true", help="Print reviewed public source manifest and exit.")
     return parser
 
 
 def main() -> int:
     args = _parser().parse_args()
+    if args.list_sources:
+        sources = load_public_source_manifest(args.manifest)
+        for source in sources:
+            print(
+                f"{source['source_name']}: {source['adapter_status']} | "
+                f"{source['ingestion_mode']} | {source['url']}"
+            )
+        return 0
     if args.local_export:
         output = import_local_public_export(
             args.local_export,

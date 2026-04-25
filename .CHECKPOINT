@@ -13,8 +13,15 @@ Current known state:
 - SOTA-for-MVP CPU training exists, but the demo dataset is still tiny.
 - Real next value is more data, stronger validation, trained-bundle AD use, recommendation score decomposition, and API/GUI smoke coverage.
 
+Latest autonomous heartbeat progress:
+
+- Added `data/public_source_manifest.json`.
+- Added `scripts/fetch_public_datasets.py --list-sources`.
+- Added tests for manifest contract and local CSV/TSV/JSONL public imports.
+- Hardened column chemistry inference for nullable and alias-derived public rows.
+
 Next session should:
 
 1. Read `.PLAN`.
-2. Start Milestone A or C-light.
+2. Continue Milestone A by adding reviewed public RT sample imports beyond RepoRT dataset 0001, or start C-light by adding trained-bundle applicability-domain use in predictions.
 3. Verify, commit, and push a small milestone.

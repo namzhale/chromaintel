@@ -124,6 +124,8 @@ Internal lab files should map to the normalized record columns used in `data/moc
 Normalize a reviewed local public export without scraping:
 
 ```powershell
+python scripts/fetch_public_datasets.py --list-sources
+
 python scripts/fetch_public_datasets.py `
   --local-export data\raw\public_sources\some_rt_export.tsv `
   --source-name RepoRT:reviewed `
