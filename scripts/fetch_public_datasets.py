@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
 import pandas as pd
@@ -24,6 +25,7 @@ PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 PUBLIC_SOURCE_MANIFEST = PROJECT_ROOT / "data" / "public_source_manifest.json"
 
 REPORT_BASE = "https://raw.githubusercontent.com/michaelwitting/RepoRT/master/processed_data"
+REPORT_API_CONTENTS = "https://api.github.com/repos/michaelwitting/RepoRT/contents/processed_data"
 REPORT_DATASET_ID = "0001"
 MINIMAL_PUBLIC_RT_COLUMNS = {"compound_name", "rt_min"}
 
@@ -80,6 +82,70 @@ def fetch_report_sample(
     output_path = processed_dir / f"external_report_{dataset_id}_sample.csv"
     normalized.to_csv(output_path, index=False)
     return output_path
+
+
+def fetch_report_bulk(
+    target_rows: int = 5000,
+    max_datasets: int = 80,
+    raw_dir: Path = RAW_DIR,
+    processed_dir: Path = PROCESSED_DIR,
+    output_name: str = "report_bulk",
+) -> Path:
+    """Fetch enough reviewed RepoRT processed datasets to reach a row target."""
+
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    processed_dir.mkdir(parents=True, exist_ok=True)
+    frames: list[pd.DataFrame] = []
+    failures: list[str] = []
+    total_rows = 0
+    for dataset_id in list_report_dataset_ids()[:max_datasets]:
+        if total_rows >= target_rows:
+            break
+        try:
+            files = _download_report_files(dataset_id, raw_dir)
+            remaining = max(target_rows - total_rows, 0)
+            normalized = normalize_report(files, dataset_id, rows=remaining)
+        except (HTTPError, URLError, TimeoutError, KeyError, ValueError, pd.errors.ParserError) as exc:
+            failures.append(f"{dataset_id}:{type(exc).__name__}")
+            continue
+        if normalized.empty:
+            continue
+        frames.append(normalized)
+        total_rows += len(normalized)
+
+    if not frames:
+        raise RuntimeError("No RepoRT datasets could be fetched for the bulk import")
+
+    bulk = pd.concat(frames, ignore_index=True)
+    bulk["notes"] = bulk["notes"].map(
+        lambda note: _append_note(
+            note,
+            f"bulk RepoRT import target_rows={target_rows}; skipped={','.join(failures[:20]) or 'none'}",
+        )
+    )
+    bulk["missing_fields_count"] = bulk[CANONICAL_DATASET_COLUMNS[:-1]].isna().sum(axis=1)
+    output_path = processed_dir / f"external_{output_name}.csv"
+    bulk.to_csv(output_path, index=False)
+    print(
+        f"Fetched {len(frames)} RepoRT datasets, {len(bulk)} rows. "
+        f"Skipped {len(failures)} datasets."
+    )
+    if failures:
+        print(f"Skipped sample: {', '.join(failures[:10])}")
+    return output_path
+
+
+def list_report_dataset_ids() -> list[str]:
+    """List RepoRT processed dataset identifiers from the public GitHub API."""
+
+    with urlopen(REPORT_API_CONTENTS, timeout=30) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    dataset_ids = [
+        item["name"]
+        for item in payload
+        if item.get("type") == "dir" and str(item.get("name", "")).isdigit()
+    ]
+    return sorted(dataset_ids)
 
 
 def import_local_public_export(
@@ -357,6 +423,9 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Fetch tiny public LC-MS RT datasets for offline MVP samples.")
     parser.add_argument("--report-id", default=REPORT_DATASET_ID, help="RepoRT processed_data dataset id.")
     parser.add_argument("--rows", type=int, default=10, help="Number of RT rows to normalize.")
+    parser.add_argument("--bulk-report", action="store_true", help="Fetch multiple RepoRT processed datasets.")
+    parser.add_argument("--target-rows", type=int, default=5000, help="Target rows for --bulk-report.")
+    parser.add_argument("--max-datasets", type=int, default=80, help="Maximum RepoRT datasets to attempt for --bulk-report.")
     parser.add_argument(
         "--local-export",
         type=Path,
@@ -386,7 +455,13 @@ def main() -> int:
                 f"{source['ingestion_mode']} | {source['url']}"
             )
         return 0
-    if args.local_export:
+    if args.bulk_report:
+        output = fetch_report_bulk(
+            target_rows=args.target_rows,
+            max_datasets=args.max_datasets,
+            output_name=args.output_name or "report_bulk",
+        )
+    elif args.local_export:
         output = import_local_public_export(
             args.local_export,
             source_name=args.source_name,

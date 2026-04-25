@@ -127,6 +127,10 @@ Normalize a reviewed local public export without scraping:
 ```powershell
 python scripts/fetch_public_datasets.py --list-sources
 
+python scripts/fetch_public_datasets.py --bulk-report --target-rows 5000 --max-datasets 80 --output-name report_bulk_5k
+
+python scripts/assemble_dataset.py --additional-source data\processed\external_report_bulk_5k.csv
+
 python scripts/fetch_public_datasets.py `
   --local-export data\raw\public_sources\some_rt_export.tsv `
   --source-name RepoRT:reviewed `
@@ -142,6 +146,12 @@ python scripts/extract_lcms_entities.py --stdin-text "Caffeine on C18 column, rt
 ```
 
 The literature parser is offline-first. The `--use-llm` flag is reserved for a future opt-in extractor and does not call an LLM in this MVP.
+
+Current checked-in processed training matrix after bulk RepoRT expansion:
+
+- `data/processed/master_dataset.csv`: 4,978 rows, 3,681 compounds
+- `data/processed/model_matrix.csv`: 4,978 rows x 41 columns
+- selected RT model after retraining: `extra_trees`
 
 ## Internal Lab Onboarding
 

@@ -125,6 +125,7 @@ class TrainedForwardModelBundle:
                 "metadata": self.metadata,
             },
             path,
+            compress=3,
         )
 
     @classmethod

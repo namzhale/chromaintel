@@ -6,8 +6,10 @@ import pytest
 from scripts.fetch_public_datasets import (
     REQUIRED_MANIFEST_FIELDS,
     import_local_public_export,
+    list_report_dataset_ids,
     load_public_source_manifest,
 )
+from scripts.assemble_dataset import assemble_dataset
 
 
 def test_public_source_manifest_has_required_contract():
@@ -72,3 +74,68 @@ def test_import_local_public_export_rejects_files_without_rt(tmp_path):
             license_note="test license",
             processed_dir=tmp_path,
         )
+
+
+def test_assemble_dataset_accepts_additional_processed_source(tmp_path):
+    primary = tmp_path / "primary.csv"
+    pd.DataFrame(
+        [
+            {
+                "compound_name": "Caffeine",
+                "smiles": "Cn1cnc2c1c(=O)n(C)c(=O)n2C",
+                "column_name": "BEH C18",
+                "mobile_phase_a": "Water",
+                "mobile_phase_b": "Acetonitrile",
+                "rt_min": 1.4,
+            }
+        ]
+    ).to_csv(primary, index=False)
+    extra = tmp_path / "external.csv"
+    pd.DataFrame(
+        [
+            {
+                "compound_name": "Aspirin",
+                "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+                "source_dataset": "RepoRT:unit",
+                "column_name": "BEH C18",
+                "mobile_phase_a": "Water",
+                "mobile_phase_b": "Acetonitrile",
+                "rt_min": 3.2,
+            }
+        ]
+    ).to_csv(extra, index=False)
+
+    outputs = assemble_dataset(
+        source_path=primary,
+        output_dir=tmp_path / "processed",
+        templates_dir=tmp_path / "templates",
+        additional_sources=[extra],
+    )
+    master = pd.read_csv(outputs.master_path)
+
+    assert outputs.source_rows == 1
+    assert outputs.additional_source_rows == 1
+    assert outputs.master_rows == 2
+    assert set(master["source_dataset"]) == {"primary", "RepoRT:unit"}
+
+
+def test_list_report_dataset_ids_can_parse_github_payload(monkeypatch):
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return json.dumps(
+                [
+                    {"name": "0002", "type": "dir"},
+                    {"name": "README.md", "type": "file"},
+                    {"name": "0001", "type": "dir"},
+                ]
+            ).encode()
+
+    monkeypatch.setattr("scripts.fetch_public_datasets.urlopen", lambda *_args, **_kwargs: FakeResponse())
+
+    assert list_report_dataset_ids() == ["0001", "0002"]

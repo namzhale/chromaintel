@@ -20,9 +20,12 @@ Latest autonomous heartbeat progress:
 - Added tests for manifest contract and local CSV/TSV/JSONL public imports.
 - Hardened column chemistry inference for nullable and alias-derived public rows.
 - Added trained-bundle applicability-domain metadata and wired `ForwardPredictor` to return AD reasons from model metadata.
+- Expanded the processed dataset with a bulk RepoRT import: `data/processed/external_report_bulk_5k.csv`.
+- Reassembled `master_dataset.csv` and `model_matrix.csv` to 4,978 rows and 3,681 compounds.
+- Retrained models on the expanded matrix; selected RT model is now `extra_trees`.
 
 Next session should:
 
 1. Read `.PLAN`.
-2. Continue Milestone A by adding reviewed public RT sample imports beyond RepoRT dataset 0001, or continue Milestone D with recommendation score decomposition and AD penalties.
+2. Continue Milestone C with optional Morgan fingerprint training, or Milestone D with recommendation score decomposition and AD penalties.
 3. Verify, commit, and push a small milestone.
