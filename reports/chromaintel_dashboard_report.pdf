@@ -1,0 +1,343 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R 9 0 R 11 0 R] /Count 4 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 3034 >>
+stream
+BT /F2 20 Tf 42.00 553.00 Td (ChromaIntel LC-MS/MS MVP Dashboard) Tj ET
+BT /F1 10 Tf 42.00 529.00 Td (Dataset size, model comparison, parameter significance, and development roadmap) Tj ET
+0.930 0.960 0.980 rg 42.00 437.00 170.00 64.00 re f 0 0 0 rg
+BT /F2 22 Tf 54.00 477.00 Td (12) Tj ET
+BT /F1 9 Tf 54.00 455.00 Td (Master rows) Tj ET
+0.930 0.960 0.980 rg 222.00 437.00 170.00 64.00 re f 0 0 0 rg
+BT /F2 22 Tf 234.00 477.00 Td (12) Tj ET
+BT /F1 9 Tf 234.00 455.00 Td (Model rows) Tj ET
+0.930 0.960 0.980 rg 402.00 437.00 170.00 64.00 re f 0 0 0 rg
+BT /F2 22 Tf 414.00 477.00 Td (8) Tj ET
+BT /F1 9 Tf 414.00 455.00 Td (Compounds) Tj ET
+0.930 0.960 0.980 rg 582.00 437.00 170.00 64.00 re f 0 0 0 rg
+BT /F2 22 Tf 594.00 477.00 Td (3) Tj ET
+BT /F1 9 Tf 594.00 455.00 Td (Sources) Tj ET
+BT /F2 11 Tf 42.00 406.00 Td (Rows by source) Tj ET
+BT /F1 8 Tf 42.00 391.00 Td (internal_lab) Tj ET
+0.160 0.420 0.670 rg 160.00 388.00 170.00 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 335.00 391.00 Td (5) Tj ET
+BT /F1 8 Tf 42.00 366.00 Td (RepoRT) Tj ET
+0.160 0.420 0.670 rg 160.00 363.00 170.00 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 335.00 366.00 Td (5) Tj ET
+BT /F1 8 Tf 42.00 341.00 Td (METLIN_SMRT) Tj ET
+0.160 0.420 0.670 rg 160.00 338.00 68.00 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 233.00 341.00 Td (2) Tj ET
+BT /F2 11 Tf 462.00 406.00 Td (Highest missingness fraction) Tj ET
+BT /F1 8 Tf 462.00 391.00 Td (resolution) Tj ET
+0.160 0.420 0.670 rg 580.00 388.00 150.00 13.00 re f 0 0 0 rg
+BT /F1 8 Tf 735.00 391.00 Td (1) Tj ET
+BT /F1 8 Tf 462.00 371.00 Td (gradient_profile) Tj ET
+0.160 0.420 0.670 rg 580.00 368.00 150.00 13.00 re f 0 0 0 rg
+BT /F1 8 Tf 735.00 371.00 Td (1) Tj ET
+BT /F1 8 Tf 462.00 351.00 Td (source_record_id) Tj ET
+0.160 0.420 0.670 rg 580.00 348.00 150.00 13.00 re f 0 0 0 rg
+BT /F1 8 Tf 735.00 351.00 Td (1) Tj ET
+BT /F1 8 Tf 462.00 331.00 Td (tailing_factor) Tj ET
+0.160 0.420 0.670 rg 580.00 328.00 150.00 13.00 re f 0 0 0 rg
+BT /F1 8 Tf 735.00 331.00 Td (1) Tj ET
+BT /F1 8 Tf 462.00 311.00 Td (asymmetry) Tj ET
+0.160 0.420 0.670 rg 580.00 308.00 150.00 13.00 re f 0 0 0 rg
+BT /F1 8 Tf 735.00 311.00 Td (1) Tj ET
+BT /F1 8 Tf 462.00 291.00 Td (sn_ratio) Tj ET
+0.160 0.420 0.670 rg 580.00 288.00 150.00 13.00 re f 0 0 0 rg
+BT /F1 8 Tf 735.00 291.00 Td (1) Tj ET
+BT /F1 8 Tf 462.00 271.00 Td (notes) Tj ET
+0.160 0.420 0.670 rg 580.00 268.00 150.00 13.00 re f 0 0 0 rg
+BT /F1 8 Tf 735.00 271.00 Td (1) Tj ET
+BT /F1 8 Tf 462.00 251.00 Td (peak_area) Tj ET
+0.160 0.420 0.670 rg 580.00 248.00 150.00 13.00 re f 0 0 0 rg
+BT /F1 8 Tf 735.00 251.00 Td (1) Tj ET
+BT /F2 13 Tf 42.00 236.00 Td (Executive Notes) Tj ET
+BT /F1 9 Tf 42.00 216.00 Td (- Prediction targets: retention time in minutes \(rt_min\) and provisional peak quality score \(quality_score\).) Tj ET
+BT /F1 9 Tf 42.00 201.00 Td (- Current demo dataset is intentionally small and mixed-source; metrics are diagnostic, not production evidence.) Tj ET
+BT /F1 9 Tf 42.00 186.00 Td (- Internal bioanalytical runs with accepted and failed methods are the highest-value next data source.) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 4822 >>
+stream
+BT /F2 18 Tf 42.00 553.00 Td (Model Comparison) Tj ET
+BT /F2 11 Tf 42.00 527.00 Td (RT validation MAE \(lower is better\)) Tj ET
+BT /F1 8 Tf 42.00 512.00 Td (linear_ridge) Tj ET
+0.160 0.420 0.670 rg 160.00 509.00 131.82 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 296.82 512.00 Td (1.56) Tj ET
+BT /F1 8 Tf 42.00 487.00 Td (random_forest) Tj ET
+0.160 0.420 0.670 rg 160.00 484.00 144.03 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 309.03 487.00 Td (1.7) Tj ET
+BT /F1 8 Tf 42.00 462.00 Td (extra_trees) Tj ET
+0.700 0.250 0.250 rg 160.00 459.00 180.00 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 345.00 462.00 Td (2.13) Tj ET
+BT /F1 8 Tf 42.00 437.00 Td (hist_gradient_boosting) Tj ET
+0.160 0.420 0.670 rg 160.00 434.00 146.63 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 311.63 437.00 Td (1.73) Tj ET
+BT /F2 11 Tf 462.00 527.00 Td (RT test MAE \(lower is better\)) Tj ET
+BT /F1 8 Tf 462.00 512.00 Td (linear_ridge) Tj ET
+0.700 0.250 0.250 rg 580.00 509.00 160.00 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 745.00 512.00 Td (2.9) Tj ET
+BT /F1 8 Tf 462.00 487.00 Td (random_forest) Tj ET
+0.160 0.420 0.670 rg 580.00 484.00 119.60 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 704.60 487.00 Td (2.17) Tj ET
+BT /F1 8 Tf 462.00 462.00 Td (extra_trees) Tj ET
+0.160 0.420 0.670 rg 580.00 459.00 107.66 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 692.66 462.00 Td (1.95) Tj ET
+BT /F1 8 Tf 462.00 437.00 Td (hist_gradient_boosting) Tj ET
+0.160 0.420 0.670 rg 580.00 434.00 114.31 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 699.31 437.00 Td (2.07) Tj ET
+0.900 0.930 0.960 rg 42.00 349.00 450.00 17.00 re f 0 0 0 rg
+BT /F2 8 Tf 46.00 354.00 Td (RT model) Tj ET
+BT /F2 8 Tf 211.00 354.00 Td (Val MAE) Tj ET
+BT /F2 8 Tf 306.00 354.00 Td (Test MAE) Tj ET
+BT /F2 8 Tf 401.00 354.00 Td (Test R2) Tj ET
+0.75 w 42.00 347.00 m 492.00 347.00 l S
+BT /F1 8 Tf 46.00 337.00 Td (linear_ridge) Tj ET
+BT /F1 8 Tf 211.00 337.00 Td (1.558) Tj ET
+BT /F1 8 Tf 306.00 337.00 Td (2.901) Tj ET
+BT /F1 8 Tf 401.00 337.00 Td (-0.791) Tj ET
+0.970 0.980 0.990 rg 42.00 315.00 450.00 17.00 re f 0 0 0 rg
+BT /F1 8 Tf 46.00 320.00 Td (random_forest) Tj ET
+BT /F1 8 Tf 211.00 320.00 Td (1.703) Tj ET
+BT /F1 8 Tf 306.00 320.00 Td (2.168) Tj ET
+BT /F1 8 Tf 401.00 320.00 Td (-0.104) Tj ET
+BT /F1 8 Tf 46.00 303.00 Td (extra_trees) Tj ET
+BT /F1 8 Tf 211.00 303.00 Td (2.128) Tj ET
+BT /F1 8 Tf 306.00 303.00 Td (1.952) Tj ET
+BT /F1 8 Tf 401.00 303.00 Td (0.259) Tj ET
+0.970 0.980 0.990 rg 42.00 281.00 450.00 17.00 re f 0 0 0 rg
+BT /F1 8 Tf 46.00 286.00 Td (hist_gradient_boosting) Tj ET
+BT /F1 8 Tf 211.00 286.00 Td (1.733) Tj ET
+BT /F1 8 Tf 306.00 286.00 Td (2.072) Tj ET
+BT /F1 8 Tf 401.00 286.00 Td (-0.182) Tj ET
+0.900 0.930 0.960 rg 42.00 244.00 450.00 17.00 re f 0 0 0 rg
+BT /F2 8 Tf 46.00 249.00 Td (Quality model) Tj ET
+BT /F2 8 Tf 211.00 249.00 Td (Val MAE) Tj ET
+BT /F2 8 Tf 306.00 249.00 Td (Test MAE) Tj ET
+BT /F2 8 Tf 401.00 249.00 Td (Test R2) Tj ET
+0.75 w 42.00 242.00 m 492.00 242.00 l S
+BT /F1 8 Tf 46.00 232.00 Td (linear_ridge) Tj ET
+BT /F1 8 Tf 211.00 232.00 Td (0.034) Tj ET
+BT /F1 8 Tf 306.00 232.00 Td (0.069) Tj ET
+BT /F1 8 Tf 401.00 232.00 Td (0.386) Tj ET
+0.970 0.980 0.990 rg 42.00 210.00 450.00 17.00 re f 0 0 0 rg
+BT /F1 8 Tf 46.00 215.00 Td (random_forest) Tj ET
+BT /F1 8 Tf 211.00 215.00 Td (0.058) Tj ET
+BT /F1 8 Tf 306.00 215.00 Td (0.085) Tj ET
+BT /F1 8 Tf 401.00 215.00 Td (0.172) Tj ET
+BT /F1 8 Tf 46.00 198.00 Td (extra_trees) Tj ET
+BT /F1 8 Tf 211.00 198.00 Td (0.051) Tj ET
+BT /F1 8 Tf 306.00 198.00 Td (0.070) Tj ET
+BT /F1 8 Tf 401.00 198.00 Td (0.425) Tj ET
+0.970 0.980 0.990 rg 42.00 176.00 450.00 17.00 re f 0 0 0 rg
+BT /F1 8 Tf 46.00 181.00 Td (hist_gradient_boosting) Tj ET
+BT /F1 8 Tf 211.00 181.00 Td (0.068) Tj ET
+BT /F1 8 Tf 306.00 181.00 Td (0.099) Tj ET
+BT /F1 8 Tf 401.00 181.00 Td (-0.095) Tj ET
+BT /F2 12 Tf 562.00 235.00 Td (Source-wise RT error) Tj ET
+0.900 0.930 0.960 rg 562.00 202.00 260.00 17.00 re f 0 0 0 rg
+BT /F2 8 Tf 566.00 207.00 Td (Source) Tj ET
+BT /F2 8 Tf 671.00 207.00 Td (N) Tj ET
+BT /F2 8 Tf 706.00 207.00 Td (MAE) Tj ET
+BT /F2 8 Tf 766.00 207.00 Td (Bias) Tj ET
+0.75 w 562.00 200.00 m 822.00 200.00 l S
+BT /F1 8 Tf 566.00 190.00 Td (METLIN_SMRT) Tj ET
+BT /F1 8 Tf 671.00 190.00 Td (1) Tj ET
+BT /F1 8 Tf 706.00 190.00 Td (5.006) Tj ET
+BT /F1 8 Tf 766.00 190.00 Td (-5.006) Tj ET
+0.970 0.980 0.990 rg 562.00 168.00 260.00 17.00 re f 0 0 0 rg
+BT /F1 8 Tf 566.00 173.00 Td (RepoRT) Tj ET
+BT /F1 8 Tf 671.00 173.00 Td (1) Tj ET
+BT /F1 8 Tf 706.00 173.00 Td (2.454) Tj ET
+BT /F1 8 Tf 766.00 173.00 Td (-2.454) Tj ET
+BT /F1 8 Tf 566.00 156.00 Td (internal_lab) Tj ET
+BT /F1 8 Tf 671.00 156.00 Td (1) Tj ET
+BT /F1 8 Tf 706.00 156.00 Td (1.242) Tj ET
+BT /F1 8 Tf 766.00 156.00 Td (1.242) Tj ET
+BT /F2 10 Tf 42.00 70.00 Td (Selected RT model: linear_ridge; selected quality model: linear_ridge) Tj ET
+BT /F1 9 Tf 42.00 52.00 Td (Uncertainty proxy: split_conformal_abs_residual_q90 q90=2.243 min) Tj ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 10 0 R >>
+endobj
+10 0 obj
+<< /Length 5478 >>
+stream
+BT /F2 18 Tf 42.00 553.00 Td (Parameter Significance And Validation Detail) Tj ET
+BT /F2 11 Tf 42.00 525.00 Td (Top RT permutation importance) Tj ET
+BT /F1 8 Tf 42.00 510.00 Td (logp) Tj ET
+0.160 0.420 0.670 rg 160.00 507.00 320.00 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 485.00 510.00 Td (0.214) Tj ET
+BT /F1 8 Tf 42.00 485.00 Td (molecular_weight) Tj ET
+0.160 0.420 0.670 rg 160.00 482.00 181.41 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 346.41 485.00 Td (0.121) Tj ET
+BT /F1 8 Tf 42.00 460.00 Td (precursor_mz) Tj ET
+0.160 0.420 0.670 rg 160.00 457.00 153.74 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 318.74 460.00 Td (0.103) Tj ET
+BT /F1 8 Tf 42.00 435.00 Td (hbond_acceptors) Tj ET
+0.160 0.420 0.670 rg 160.00 432.00 135.80 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 300.80 435.00 Td (0.0908) Tj ET
+BT /F1 8 Tf 42.00 410.00 Td (ion_mode) Tj ET
+0.160 0.420 0.670 rg 160.00 407.00 29.67 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 194.67 410.00 Td (0.0198) Tj ET
+BT /F1 8 Tf 42.00 385.00 Td (ph) Tj ET
+0.160 0.420 0.670 rg 160.00 382.00 1.26 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 166.26 385.00 Td (0.000844) Tj ET
+BT /F1 8 Tf 42.00 360.00 Td (mobile_phase_b) Tj ET
+0.160 0.420 0.670 rg 160.00 357.00 0.75 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 165.75 360.00 Td (0.000501) Tj ET
+BT /F1 8 Tf 42.00 335.00 Td (mobile_phase_system) Tj ET
+0.160 0.420 0.670 rg 160.00 332.00 0.75 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 165.75 335.00 Td (0.000501) Tj ET
+BT /F1 8 Tf 42.00 310.00 Td (flow_ml_min) Tj ET
+0.160 0.420 0.670 rg 160.00 307.00 0.41 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 165.41 310.00 Td (0.000272) Tj ET
+BT /F1 8 Tf 42.00 285.00 Td (formal_charge) Tj ET
+0.160 0.420 0.670 rg 160.00 282.00 0.00 18.00 re f 0 0 0 rg
+BT /F1 8 Tf 165.00 285.00 Td (0) Tj ET
+0.900 0.930 0.960 rg 562.00 502.00 281.00 17.00 re f 0 0 0 rg
+BT /F2 7 Tf 566.00 507.00 Td (Feature) Tj ET
+BT /F2 7 Tf 654.00 507.00 Td (Group) Tj ET
+BT /F2 7 Tf 730.00 507.00 Td (Imp.) Tj ET
+BT /F2 7 Tf 775.00 507.00 Td (Signal) Tj ET
+0.75 w 562.00 500.00 m 843.00 500.00 l S
+BT /F1 7 Tf 566.00 490.00 Td (logp) Tj ET
+BT /F1 7 Tf 654.00 490.00 Td (compound_descript) Tj ET
+BT /F1 7 Tf 730.00 490.00 Td (0.214) Tj ET
+BT /F1 7 Tf 775.00 490.00 Td (neutral_or_unsta) Tj ET
+0.970 0.980 0.990 rg 562.00 468.00 281.00 17.00 re f 0 0 0 rg
+BT /F1 7 Tf 566.00 473.00 Td (molecular_weight) Tj ET
+BT /F1 7 Tf 654.00 473.00 Td (compound_descript) Tj ET
+BT /F1 7 Tf 730.00 473.00 Td (0.121) Tj ET
+BT /F1 7 Tf 775.00 473.00 Td (neutral_or_unsta) Tj ET
+BT /F1 7 Tf 566.00 456.00 Td (precursor_mz) Tj ET
+BT /F1 7 Tf 654.00 456.00 Td (ms_setting) Tj ET
+BT /F1 7 Tf 730.00 456.00 Td (0.103) Tj ET
+BT /F1 7 Tf 775.00 456.00 Td (neutral_or_unsta) Tj ET
+0.970 0.980 0.990 rg 562.00 434.00 281.00 17.00 re f 0 0 0 rg
+BT /F1 7 Tf 566.00 439.00 Td (hbond_acceptors) Tj ET
+BT /F1 7 Tf 654.00 439.00 Td (compound_descript) Tj ET
+BT /F1 7 Tf 730.00 439.00 Td (0.091) Tj ET
+BT /F1 7 Tf 775.00 439.00 Td (weak_positive) Tj ET
+BT /F1 7 Tf 566.00 422.00 Td (ion_mode) Tj ET
+BT /F1 7 Tf 654.00 422.00 Td (ms_setting) Tj ET
+BT /F1 7 Tf 730.00 422.00 Td (0.020) Tj ET
+BT /F1 7 Tf 775.00 422.00 Td (neutral_or_unsta) Tj ET
+0.970 0.980 0.990 rg 562.00 400.00 281.00 17.00 re f 0 0 0 rg
+BT /F1 7 Tf 566.00 405.00 Td (ph) Tj ET
+BT /F1 7 Tf 654.00 405.00 Td (lc_numeric) Tj ET
+BT /F1 7 Tf 730.00 405.00 Td (0.001) Tj ET
+BT /F1 7 Tf 775.00 405.00 Td (neutral_or_unsta) Tj ET
+BT /F1 7 Tf 566.00 388.00 Td (mobile_phase_b) Tj ET
+BT /F1 7 Tf 654.00 388.00 Td (lc_categorical) Tj ET
+BT /F1 7 Tf 730.00 388.00 Td (0.001) Tj ET
+BT /F1 7 Tf 775.00 388.00 Td (neutral_or_unsta) Tj ET
+0.970 0.980 0.990 rg 562.00 366.00 281.00 17.00 re f 0 0 0 rg
+BT /F1 7 Tf 566.00 371.00 Td (mobile_phase_system) Tj ET
+BT /F1 7 Tf 654.00 371.00 Td (lc_categorical) Tj ET
+BT /F1 7 Tf 730.00 371.00 Td (0.001) Tj ET
+BT /F1 7 Tf 775.00 371.00 Td (neutral_or_unsta) Tj ET
+BT /F1 7 Tf 566.00 354.00 Td (flow_ml_min) Tj ET
+BT /F1 7 Tf 654.00 354.00 Td (lc_numeric) Tj ET
+BT /F1 7 Tf 730.00 354.00 Td (0.000) Tj ET
+BT /F1 7 Tf 775.00 354.00 Td (neutral_or_unsta) Tj ET
+0.970 0.980 0.990 rg 562.00 332.00 281.00 17.00 re f 0 0 0 rg
+BT /F1 7 Tf 566.00 337.00 Td (formal_charge) Tj ET
+BT /F1 7 Tf 654.00 337.00 Td (compound_descript) Tj ET
+BT /F1 7 Tf 730.00 337.00 Td (0.000) Tj ET
+BT /F1 7 Tf 775.00 337.00 Td (neutral_or_unsta) Tj ET
+BT /F2 13 Tf 42.00 245.00 Td (Held-out prediction diagnostics) Tj ET
+BT /F1 10 Tf 42.00 225.00 Td (Test rows: 3 | RT MAE: 2.901 min | RT RMSE: 3.298 min | AD flags: 0) Tj ET
+0.900 0.930 0.960 rg 42.00 190.00 460.00 17.00 re f 0 0 0 rg
+BT /F2 8 Tf 46.00 195.00 Td (Compound) Tj ET
+BT /F2 8 Tf 176.00 195.00 Td (Source) Tj ET
+BT /F2 8 Tf 281.00 195.00 Td (Actual RT) Tj ET
+BT /F2 8 Tf 356.00 195.00 Td (Pred RT) Tj ET
+BT /F2 8 Tf 431.00 195.00 Td (Abs Error) Tj ET
+0.75 w 42.00 188.00 m 502.00 188.00 l S
+BT /F1 8 Tf 46.00 178.00 Td (Atorvastatin) Tj ET
+BT /F1 8 Tf 176.00 178.00 Td (METLIN_SMRT) Tj ET
+BT /F1 8 Tf 281.00 178.00 Td (7.250) Tj ET
+BT /F1 8 Tf 356.00 178.00 Td (2.244) Tj ET
+BT /F1 8 Tf 431.00 178.00 Td (5.006) Tj ET
+0.970 0.980 0.990 rg 42.00 156.00 460.00 17.00 re f 0 0 0 rg
+BT /F1 8 Tf 46.00 161.00 Td (Atenolol) Tj ET
+BT /F1 8 Tf 176.00 161.00 Td (RepoRT) Tj ET
+BT /F1 8 Tf 281.00 161.00 Td (3.200) Tj ET
+BT /F1 8 Tf 356.00 161.00 Td (0.746) Tj ET
+BT /F1 8 Tf 431.00 161.00 Td (2.454) Tj ET
+BT /F1 8 Tf 46.00 144.00 Td (Caffeine) Tj ET
+BT /F1 8 Tf 176.00 144.00 Td (internal_lab) Tj ET
+BT /F1 8 Tf 281.00 144.00 Td (1.350) Tj ET
+BT /F1 8 Tf 356.00 144.00 Td (2.592) Tj ET
+BT /F1 8 Tf 431.00 144.00 Td (1.242) Tj ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 12 0 R >>
+endobj
+12 0 obj
+<< /Length 2084 >>
+stream
+BT /F2 18 Tf 42.00 553.00 Td (Roadmap) Tj ET
+BT /F2 12 Tf 42.00 523.00 Td (0-2 weeks: data foundation) Tj ET
+BT /F1 9 Tf 54.00 506.00 Td (- Import internal BE-style historical runs with accepted, failed, low-intensity, poor-resolution, and carryover) Tj ET
+BT /F1 9 Tf 54.00 494.00 Td (cases.) Tj ET
+BT /F1 9 Tf 54.00 480.00 Td (- Expand reviewed public RT samples and preserve source/license/missingness provenance.) Tj ET
+BT /F1 9 Tf 54.00 466.00 Td (- Add import preview summaries for invalid rows, duplicate runs, and missing MS/LC fields.) Tj ET
+BT /F2 12 Tf 42.00 440.00 Td (2-4 weeks: stronger validation and models) Tj ET
+BT /F1 9 Tf 54.00 423.00 Td (- Move from random split to grouped/source holdout by InChIKey, source, and method family.) Tj ET
+BT /F1 9 Tf 54.00 409.00 Td (- Evaluate Morgan fingerprints, ExtraTrees, CatBoost/LightGBM/XGBoost when enough rows exist.) Tj ET
+BT /F1 9 Tf 54.00 395.00 Td (- Persist applicability-domain ranges and penalize out-of-domain recommendations.) Tj ET
+BT /F2 12 Tf 42.00 369.00 Td (1-2 months: recommendation quality) Tj ET
+BT /F1 9 Tf 54.00 352.00 Td (- Add score decomposition: RT fit, quality, runtime, confidence, AD penalty.) Tj ET
+BT /F1 9 Tf 54.00 338.00 Td (- Make LC search space configurable by lab-approved columns, solvents, pH, flow, temperature, and runtime.) Tj ET
+BT /F1 9 Tf 54.00 324.00 Td (- Collect outcome feedback from recommended methods for active learning.) Tj ET
+BT /F2 12 Tf 42.00 298.00 Td (2-4 months: SOTA research track) Tj ET
+BT /F1 9 Tf 54.00 281.00 Td (- Pretrain or benchmark graph/Transformer structure encoders on METLIN/RepoRT/MCMRT-scale RT data.) Tj ET
+BT /F1 9 Tf 54.00 267.00 Td (- Use retention-order objectives where absolute RT does not transfer cleanly between methods.) Tj ET
+BT /F1 9 Tf 54.00 253.00 Td (- Add calibrated conformal intervals by matrix, source, column chemistry, and instrument platform.) Tj ET
+BT /F2 9 Tf 42.00 45.00 Td (Decision gate: do not claim production readiness until internal data volume, grouped validation, and lab acceptance criteria are in place.) Tj ET
+endstream
+endobj
+xref
+0 13
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000140 00000 n 
+0000000210 00000 n 
+0000000285 00000 n 
+0000000421 00000 n 
+0000003507 00000 n 
+0000003643 00000 n 
+0000008517 00000 n 
+0000008654 00000 n 
+0000014185 00000 n 
+0000014323 00000 n 
+trailer
+<< /Size 13 /Root 1 0 R >>
+startxref
+16460
+%%EOF

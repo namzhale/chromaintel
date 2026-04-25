@@ -60,6 +60,14 @@ This trains Ridge, RandomForest, ExtraTrees, and HistGradientBoosting models for
 - `reports/sota_model_experiments.md`
 - reproducible Plotly HTML plots under `data/processed/plots/`
 
+Generate a compact PDF dashboard for presentation or review:
+
+```powershell
+python scripts/generate_dashboard_pdf.py
+```
+
+This writes `reports/chromaintel_dashboard_report.pdf` with dataset size, model comparison, source-wise errors, parameter significance, and the next roadmap.
+
 Run the GUI:
 
 ```powershell
@@ -161,6 +169,8 @@ The generated report at `reports/model_training_summary.md` contains:
 - applicability-domain flags for held-out predictions
 - permutation importance with parameter significance labels
 - limitations and next steps for internal fine-tuning
+
+For a presentation-style summary, use `reports/chromaintel_dashboard_report.pdf`.
 
 ## Testing
 
