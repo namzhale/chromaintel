@@ -1,0 +1,7 @@
+date,model_family,display_name,status,training_enabled,required_backends,missing_backends,smoke_test,metric_name,metric_value,notes
+2026-04-25,gcn,GCN,skipped_missing_dependency,false,"rdkit;torch;torch_geometric","torch;torch_geometric",rdkit_featurization,ethanol_num_atoms,3,"No training benchmark run; dependency-gated stub only."
+2026-04-25,gcn,GCN,skipped_missing_dependency,false,"rdkit;torch;torch_geometric","torch;torch_geometric",rdkit_featurization,ethanol_directed_edges,4,"No training benchmark run; dependency-gated stub only."
+2026-04-25,gat,GAT,skipped_missing_dependency,false,"rdkit;torch;torch_geometric","torch;torch_geometric",not_run,training_mae,,"No training benchmark run; dependency-gated stub only."
+2026-04-25,mpnn,MPNN,skipped_missing_dependency,false,"rdkit;torch","torch",not_run,training_mae,,"No training benchmark run; dependency-gated stub only."
+2026-04-25,d_mpnn,D-MPNN,skipped_missing_dependency,false,"rdkit;torch;chemprop","torch;chemprop",not_run,training_mae,,"No training benchmark run; dependency-gated stub only."
+2026-04-25,chemprop_style,Chemprop-style D-MPNN,skipped_missing_dependency,false,"rdkit;torch;chemprop","torch;chemprop",not_run,training_mae,,"No training benchmark run; dependency-gated stub only."

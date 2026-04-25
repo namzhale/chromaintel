@@ -1,3 +1,5 @@
+import json
+
 import pytest
 import pandas as pd
 
@@ -15,8 +17,14 @@ from app.services.predictor import ForwardPredictor
 def _training_matrix(row_count: int = 18) -> pd.DataFrame:
     rows = []
     sources = ["internal_lab", "RepoRT", "METLIN_SMRT"]
+    method_pairs = [
+        ("BEH C18", "C18", "acn_formic_acid"),
+        ("HSS T3", "T3", "methanol_formic_acid"),
+        ("Phenyl Hexyl", "phenyl_hexyl", "acn_ammonium_formate"),
+    ]
     for idx in range(row_count):
         source_idx = idx % len(sources)
+        column_name, column_chemistry, mobile_phase_system = method_pairs[idx % len(method_pairs)]
         organic_end = 65 + (idx % 5) * 5
         gradient_duration = 4 + (idx % 4)
         rows.append(
@@ -44,12 +52,12 @@ def _training_matrix(row_count: int = 18) -> pd.DataFrame:
                 "gradient_duration_min": gradient_duration,
                 "total_runtime_min": gradient_duration + 1.0,
                 "gradient_slope_percent_b_min": (organic_end - 5) / gradient_duration,
-                "column_name": "BEH C18" if idx % 2 == 0 else "HSS T3",
-                "column_chemistry": "C18" if idx % 2 == 0 else "T3",
+                "column_name": column_name,
+                "column_chemistry": column_chemistry,
                 "stationary_phase_type": "reversed phase",
                 "mobile_phase_a": "Water + 0.1% formic acid",
                 "mobile_phase_b": "Acetonitrile + 0.1% formic acid",
-                "mobile_phase_system": "acn_formic_acid",
+                "mobile_phase_system": mobile_phase_system,
                 "ion_mode": "positive" if idx % 2 == 0 else "negative",
                 "precursor_mz": 100 + idx * 10,
                 "product_mz": 80 + idx * 4,
@@ -96,12 +104,51 @@ def test_train_forward_models_exports_sota_metadata_and_feature_importance(tmp_p
     assert (tmp_path / "reports" / "sota_model_experiments.md").exists()
     assert (tmp_path / "reports" / "cv_metrics.csv").exists()
     assert (tmp_path / "reports" / "source_holdout_metrics.csv").exists()
+    assert (tmp_path / "reports" / "evaluation_matrix.csv").exists()
+    assert (tmp_path / "reports" / "evaluation_matrix.md").exists()
+    assert (tmp_path / "reports" / "model_benchmark_matrix.csv").exists()
+    assert (tmp_path / "reports" / "model_benchmark_matrix.md").exists()
+    assert (tmp_path / "reports" / "model_benchmark_matrix.json").exists()
+    assert (tmp_path / "reports" / "split_manifest.json").exists()
     assert (tmp_path / "reports" / "retention_order_metrics.csv").exists()
 
     cv_metrics = pd.read_csv(tmp_path / "reports" / "cv_metrics.csv")
-    assert {"validation_scope", "target", "model", "mae_mean", "rmse_mean", "r2_mean", "n_folds"}.issubset(
+    assert {"validation_scope", "target", "model", "mae_mean", "rmse_mean", "r2_mean", "spearman_mean", "n_folds"}.issubset(
         cv_metrics.columns
     )
+
+    evaluation = pd.read_csv(tmp_path / "reports" / "evaluation_matrix.csv")
+    assert {
+        "validation_scope",
+        "target",
+        "model",
+        "mae",
+        "rmse",
+        "r2",
+        "spearman",
+        "normalized_mae_runtime_pct",
+    }.issubset(evaluation.columns)
+    assert {"group_kfold", "final_grouped_holdout", "method_holdout", "column_family_holdout"}.issubset(
+        set(evaluation["validation_scope"])
+    )
+    assert evaluation.loc[evaluation["target"].eq("rt_min"), "normalized_mae_runtime_pct"].notna().any()
+    benchmark = pd.read_csv(tmp_path / "reports" / "model_benchmark_matrix.csv")
+    assert {"model_family", "feature_set", "split", "normalized_mae_runtime_pct"}.issubset(benchmark.columns)
+    assert not evaluation.duplicated(
+        subset=["validation_scope", "target", "model", "split_name", "holdout_key"]
+    ).any()
+
+    split_manifest = json.loads((tmp_path / "reports" / "split_manifest.json").read_text(encoding="utf-8"))
+    assert split_manifest["split_strategy"] == "group_shuffle_holdout_with_group_kfold_model_selection"
+    assert split_manifest["group_column"] == "inchikey"
+    assert split_manifest["group_overlap_counts"] == {
+        "train_validation": 0,
+        "train_test": 0,
+        "validation_test": 0,
+    }
+    assert set(split_manifest["splits"]) == {"train", "validation", "test"}
+    assert split_manifest["diagnostics"]["method_holdout"]["scope"] == "method_holdout"
+    assert split_manifest["diagnostics"]["column_family_holdout"]["scope"] == "column_family_holdout"
 
     feature_importance = pd.read_csv(tmp_path / "reports" / "feature_importance.csv")
     assert {"feature_group", "significance", "importance_z"}.issubset(feature_importance.columns)

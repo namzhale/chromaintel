@@ -7,42 +7,87 @@ This bounded experiment compares CPU-practical tabular regressors for the curren
 
 ## Grouped CV Metrics
 
-| validation_scope | target | model | group_column | n_folds | n_rows | n_groups | mae_mean | mae_std | rmse_mean | rmse_std | r2_mean | r2_std |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| group_kfold | rt_min | linear_ridge | inchikey | 5 | 15052 | 2785 | 3.776 | 0.107 | 5.681 | 0.094 | 0.709 | 0.033 |
-| group_kfold | rt_min | random_forest | inchikey | 5 | 15052 | 2785 | 1.983 | 0.046 | 3.346 | 0.194 | 0.898 | 0.019 |
-| group_kfold | rt_min | extra_trees | inchikey | 5 | 15052 | 2785 | 1.849 | 0.075 | 3.163 | 0.156 | 0.909 | 0.017 |
-| group_kfold | rt_min | hist_gradient_boosting | inchikey | 5 | 15052 | 2785 | 2.072 | 0.062 | 3.396 | 0.195 | 0.895 | 0.021 |
-| group_kfold | rt_min | xgboost | inchikey | 5 | 15052 | 2785 | 2.03 | 0.061 | 3.32 | 0.205 | 0.9 | 0.018 |
-| group_kfold | rt_min | catboost | inchikey | 5 | 15052 | 2785 | 2.164 | 0.079 | 3.363 | 0.187 | 0.897 | 0.021 |
-| group_kfold | quality_score | linear_ridge | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.003 | 0.005 | 0.554 | 0.338 |
-| group_kfold | quality_score | random_forest | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.001 | 0.001 | 0.95 | 0.027 |
-| group_kfold | quality_score | extra_trees | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.001 | 0.002 | 0.901 | 0.065 |
-| group_kfold | quality_score | hist_gradient_boosting | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.005 | 0.005 | 0.2 | 0.096 |
-| group_kfold | quality_score | xgboost | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.001 | 0.002 | 0.897 | 0.038 |
-| group_kfold | quality_score | catboost | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.001 | 0.002 | 0.919 | 0.003 |
+| validation_scope | target | model | group_column | n_folds | n_rows | n_groups | mae_mean | mae_std | rmse_mean | rmse_std | r2_mean | r2_std | spearman_mean | spearman_std |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| group_kfold | rt_min | linear_ridge | inchikey | 5 | 15052 | 2785 | 3.776 | 0.107 | 5.681 | 0.094 | 0.709 | 0.033 | 0.797 | 0.015 |
+| group_kfold | rt_min | random_forest | inchikey | 5 | 15052 | 2785 | 1.983 | 0.046 | 3.346 | 0.194 | 0.898 | 0.019 | 0.93 | 0.01 |
+| group_kfold | rt_min | extra_trees | inchikey | 5 | 15052 | 2785 | 1.849 | 0.075 | 3.163 | 0.156 | 0.909 | 0.017 | 0.94 | 0.008 |
+| group_kfold | rt_min | hist_gradient_boosting | inchikey | 5 | 15052 | 2785 | 2.072 | 0.062 | 3.396 | 0.195 | 0.895 | 0.021 | 0.928 | 0.011 |
+| group_kfold | rt_min | xgboost | inchikey | 5 | 15052 | 2785 | 2.03 | 0.061 | 3.32 | 0.205 | 0.9 | 0.018 | 0.931 | 0.009 |
+| group_kfold | rt_min | catboost | inchikey | 5 | 15052 | 2785 | 2.164 | 0.079 | 3.363 | 0.187 | 0.897 | 0.021 | 0.923 | 0.012 |
+| group_kfold | quality_score | linear_ridge | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.003 | 0.005 | 0.554 | 0.338 | 0.075 | 0.02 |
+| group_kfold | quality_score | random_forest | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.001 | 0.001 | 0.95 | 0.027 | 1.0 | 0.0 |
+| group_kfold | quality_score | extra_trees | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.001 | 0.002 | 0.901 | 0.065 | 1.0 | 0.0 |
+| group_kfold | quality_score | hist_gradient_boosting | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.005 | 0.005 | 0.2 | 0.096 | 0.227 | 0.049 |
+| group_kfold | quality_score | xgboost | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.001 | 0.002 | 0.897 | 0.038 | 1.0 | 0.0 |
+| group_kfold | quality_score | catboost | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.001 | 0.002 | 0.919 | 0.003 | 0.075 | 0.02 |
+
+## Evaluation Matrix
+
+| validation_scope | split_name | holdout_key | target | model | n_rows | n_train | n_holdout | n_groups | n_folds | mean_runtime_min | mae | rmse | r2 | spearman | normalized_mae_runtime_pct | mean_bias | median_abs_error |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| final_grouped_holdout | test | test | rt_min | linear_ridge | 3247 |  | 3247.0 |  |  | 29.616 | 3.891 | 5.737 | 0.737 | 0.819 | 13.137 |  |  |
+| final_grouped_holdout | test | test | rt_min | random_forest | 3247 |  | 3247.0 |  |  | 29.616 | 1.989 | 3.474 | 0.904 | 0.942 | 6.717 |  |  |
+| final_grouped_holdout | test | test | rt_min | extra_trees | 3247 |  | 3247.0 |  |  | 29.616 | 1.861 | 3.173 | 0.92 | 0.95 | 6.285 |  |  |
+| final_grouped_holdout | test | test | rt_min | hist_gradient_boosting | 3247 |  | 3247.0 |  |  | 29.616 | 2.095 | 3.463 | 0.904 | 0.941 | 7.074 |  |  |
+| final_grouped_holdout | test | test | rt_min | xgboost | 3247 |  | 3247.0 |  |  | 29.616 | 1.991 | 3.36 | 0.91 | 0.946 | 6.724 |  |  |
+| final_grouped_holdout | test | test | rt_min | catboost | 3247 |  | 3247.0 |  |  | 29.616 | 2.186 | 3.494 | 0.903 | 0.935 | 7.381 |  |  |
+| final_grouped_holdout | test | test | quality_score | linear_ridge | 3247 |  | 3247.0 |  |  | 29.616 | 0.0 | 0.003 | 0.85 | 0.053 |  |  |  |
+| final_grouped_holdout | test | test | quality_score | random_forest | 3247 |  | 3247.0 |  |  | 29.616 | 0.0 | 0.002 | 0.938 | 1.0 |  |  |  |
+| final_grouped_holdout | test | test | quality_score | extra_trees | 3247 |  | 3247.0 |  |  | 29.616 | 0.0 | 0.002 | 0.948 | 1.0 |  |  |  |
+| final_grouped_holdout | test | test | quality_score | hist_gradient_boosting | 3247 |  | 3247.0 |  |  | 29.616 | 0.0 | 0.005 | 0.69 | 0.057 |  |  |  |
+| final_grouped_holdout | test | test | quality_score | xgboost | 3247 |  | 3247.0 |  |  | 29.616 | 0.0 | 0.003 | 0.908 | 1.0 |  |  |  |
+| final_grouped_holdout | test | test | quality_score | catboost | 3247 |  | 3247.0 |  |  | 29.616 | 0.0 | 0.003 | 0.912 | 0.053 |  |  |  |
+| group_kfold | mean | GroupKFold | rt_min | linear_ridge | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 3.776 | 5.681 | 0.709 | 0.797 | 12.832 |  |  |
+| group_kfold | mean | GroupKFold | rt_min | random_forest | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 1.983 | 3.346 | 0.898 | 0.93 | 6.74 |  |  |
+| group_kfold | mean | GroupKFold | rt_min | extra_trees | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 1.849 | 3.163 | 0.909 | 0.94 | 6.285 |  |  |
+| group_kfold | mean | GroupKFold | rt_min | hist_gradient_boosting | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 2.072 | 3.396 | 0.895 | 0.928 | 7.042 |  |  |
+| group_kfold | mean | GroupKFold | rt_min | xgboost | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 2.03 | 3.32 | 0.9 | 0.931 | 6.9 |  |  |
+| group_kfold | mean | GroupKFold | rt_min | catboost | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 2.164 | 3.363 | 0.897 | 0.923 | 7.355 |  |  |
+| group_kfold | mean | GroupKFold | quality_score | linear_ridge | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 0.0 | 0.003 | 0.554 | 0.075 |  |  |  |
+| group_kfold | mean | GroupKFold | quality_score | random_forest | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 0.0 | 0.001 | 0.95 | 1.0 |  |  |  |
+| group_kfold | mean | GroupKFold | quality_score | extra_trees | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 0.0 | 0.001 | 0.901 | 1.0 |  |  |  |
+| group_kfold | mean | GroupKFold | quality_score | hist_gradient_boosting | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 0.0 | 0.005 | 0.2 | 0.227 |  |  |  |
+| group_kfold | mean | GroupKFold | quality_score | xgboost | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 0.0 | 0.001 | 0.897 | 1.0 |  |  |  |
+| group_kfold | mean | GroupKFold | quality_score | catboost | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 0.0 | 0.001 | 0.919 | 0.075 |  |  |  |
+| source_family_holdout | holdout | MCMRT | rt_min | linear_ridge | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 5.335 | 6.998 | 0.517 | 0.754 | 16.571 | 3.841 | 4.364 |
+| source_family_holdout | holdout | MCMRT | rt_min | random_forest | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 3.625 | 4.858 | 0.767 | 0.825 | 11.261 | -1.118 | 2.797 |
+| source_family_holdout | holdout | MCMRT | rt_min | extra_trees | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 4.016 | 5.464 | 0.705 | 0.818 | 12.476 | -0.575 | 2.921 |
+| source_family_holdout | holdout | MCMRT | rt_min | hist_gradient_boosting | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 3.585 | 4.904 | 0.763 | 0.829 | 11.136 | -0.477 | 2.579 |
+| source_family_holdout | holdout | MCMRT | rt_min | xgboost | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 3.666 | 5.007 | 0.753 | 0.798 | 11.389 | -1.367 | 2.641 |
+| source_family_holdout | holdout | MCMRT | rt_min | catboost | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 4.172 | 5.852 | 0.662 | 0.816 | 12.96 | -0.277 | 2.854 |
+| source_family_holdout | holdout | MCMRT | quality_score | linear_ridge | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 0.096 | 0.096 |  |  |  | 0.096 | 0.096 |
+| source_family_holdout | holdout | MCMRT | quality_score | random_forest | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 0.063 | 0.064 |  |  |  | 0.063 | 0.067 |
+| source_family_holdout | holdout | MCMRT | quality_score | extra_trees | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 0.129 | 0.13 |  |  |  | 0.129 | 0.132 |
+| source_family_holdout | holdout | MCMRT | quality_score | hist_gradient_boosting | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 0.009 | 0.024 |  |  |  | 0.008 | 0.001 |
+| source_family_holdout | holdout | MCMRT | quality_score | xgboost | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 0.023 | 0.025 |  |  |  | 0.023 | 0.023 |
+| source_family_holdout | holdout | MCMRT | quality_score | catboost | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 0.035 | 0.037 |  |  |  | 0.035 | 0.035 |
+| source_family_holdout | holdout | RepoRT | rt_min | linear_ridge | 4972 | 10080.0 | 4972.0 | 2507.0 |  | 23.848 | 49.538 | 64.865 | -33.162 | -0.048 | 207.726 | -40.567 | 30.983 |
+| source_family_holdout | holdout | RepoRT | rt_min | random_forest | 4972 | 10080.0 | 4972.0 | 2507.0 |  | 23.848 | 8.679 | 13.822 | -0.551 | 0.533 | 36.394 | 4.606 | 4.434 |
+| source_family_holdout | holdout | RepoRT | rt_min | extra_trees | 4972 | 10080.0 | 4972.0 | 2507.0 |  | 23.848 | 5.254 | 7.765 | 0.51 | 0.565 | 22.03 | -0.552 | 3.715 |
+| source_family_holdout | holdout | RepoRT | rt_min | hist_gradient_boosting | 4972 | 10080.0 | 4972.0 | 2507.0 |  | 23.848 | 5.184 | 8.075 | 0.471 | 0.523 | 21.737 | -1.21 | 3.305 |
 
 ## Final Grouped Holdout RT Metrics
 
-| model | validation_mae | validation_rmse | validation_r2 | test_mae | test_rmse | test_r2 |
-| --- | --- | --- | --- | --- | --- | --- |
-| linear_ridge | 3.653 | 5.479 | 0.717 | 3.891 | 5.737 | 0.737 |
-| random_forest | 2.09 | 3.372 | 0.893 | 1.989 | 3.474 | 0.904 |
-| extra_trees | 1.917 | 3.226 | 0.902 | 1.861 | 3.173 | 0.92 |
-| hist_gradient_boosting | 2.056 | 3.171 | 0.905 | 2.095 | 3.463 | 0.904 |
-| xgboost | 2.074 | 3.281 | 0.898 | 1.991 | 3.36 | 0.91 |
-| catboost | 2.238 | 3.325 | 0.896 | 2.186 | 3.494 | 0.903 |
+| model | validation_mae | validation_rmse | validation_r2 | validation_spearman | test_mae | test_rmse | test_r2 | test_spearman |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| linear_ridge | 3.653 | 5.479 | 0.717 | 0.799 | 3.891 | 5.737 | 0.737 | 0.819 |
+| random_forest | 2.09 | 3.372 | 0.893 | 0.92 | 1.989 | 3.474 | 0.904 | 0.942 |
+| extra_trees | 1.917 | 3.226 | 0.902 | 0.93 | 1.861 | 3.173 | 0.92 | 0.95 |
+| hist_gradient_boosting | 2.056 | 3.171 | 0.905 | 0.924 | 2.095 | 3.463 | 0.904 | 0.941 |
+| xgboost | 2.074 | 3.281 | 0.898 | 0.925 | 1.991 | 3.36 | 0.91 | 0.946 |
+| catboost | 2.238 | 3.325 | 0.896 | 0.915 | 2.186 | 3.494 | 0.903 | 0.935 |
 
 ## Final Grouped Holdout Quality Metrics
 
-| model | validation_mae | validation_rmse | validation_r2 | test_mae | test_rmse | test_r2 |
-| --- | --- | --- | --- | --- | --- | --- |
-| linear_ridge | 0.0 | 0.0 |  | 0.0 | 0.003 | 0.85 |
-| random_forest | 0.0 | 0.0 |  | 0.0 | 0.002 | 0.938 |
-| extra_trees | 0.0 | 0.0 |  | 0.0 | 0.002 | 0.948 |
-| hist_gradient_boosting | 0.0 | 0.001 |  | 0.0 | 0.005 | 0.69 |
-| xgboost | 0.0 | 0.0 |  | 0.0 | 0.003 | 0.908 |
-| catboost | 0.0 | 0.0 |  | 0.0 | 0.003 | 0.912 |
+| model | validation_mae | validation_rmse | validation_r2 | validation_spearman | test_mae | test_rmse | test_r2 | test_spearman |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| linear_ridge | 0.0 | 0.0 |  |  | 0.0 | 0.003 | 0.85 | 0.053 |
+| random_forest | 0.0 | 0.0 |  |  | 0.0 | 0.002 | 0.938 | 1.0 |
+| extra_trees | 0.0 | 0.0 |  |  | 0.0 | 0.002 | 0.948 | 1.0 |
+| hist_gradient_boosting | 0.0 | 0.001 |  |  | 0.0 | 0.005 | 0.69 | 0.057 |
+| xgboost | 0.0 | 0.0 |  |  | 0.0 | 0.003 | 0.908 | 1.0 |
+| catboost | 0.0 | 0.0 |  |  | 0.0 | 0.003 | 0.912 | 0.053 |
 
 Candidate models: linear_ridge, random_forest, extra_trees, hist_gradient_boosting, xgboost, catboost
 

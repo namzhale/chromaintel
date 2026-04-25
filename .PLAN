@@ -5,8 +5,8 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 ## Current Baseline
 
 - Repo is public at `https://github.com/namzhale/chromaintel`.
-- Latest major implemented layer: SOTA-oriented CPU training and data extraction pipeline.
-- Current verified tests: `33 passed` with project `.venv`.
+- Latest major implemented layer: public RT fixture adapters, canonical registry docs, enrichment fixtures, method-conditioned evaluation, and optional graph/transformer stubs.
+- Current verified tests: `63 passed` with project `.venv`.
 - Current trained demo artifact exists at `data/processed/models/trained_forward_bundle.joblib`.
 - Current processed model matrix is 15,052 rows and 3,945 compounds after RepoRT plus MCMRT expansion; quality target still provisional.
 
@@ -29,10 +29,11 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 
 - [x] Add grouped validation when enough rows exist; group by `inchikey`, `source_dataset`, and method family.
 - [x] Add optional CatBoost/XGBoost support with graceful skip when packages are absent; LightGBM remains a future optional backend.
-- [ ] Add Morgan fingerprint feature option in training CLI and compare with descriptor-only training. Feature option is implemented; full comparison run remains.
+- [ ] Add Morgan fingerprint feature option in training CLI and compare with descriptor-only training. Feature option is implemented; full large-matrix comparison run remains.
 - [x] Add applicability-domain metadata to the persisted bundle and use it in `ForwardPredictor._out_of_domain`.
 - [ ] Add conformal interval reporting by source/matrix/column family once calibration rows exist.
 - [x] Add a research note for future GNN/Transformer transfer learning architecture and required data volume.
+- [x] Add optional dependency-gated graph and transformer embedding smoke paths with offline tests.
 
 ## Milestone D: Recommendation Engine Upgrade
 
@@ -62,8 +63,8 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 
 Next high-value slice:
 
-1. Add method/column-family holdout metrics and wire them into the Russian PDF dashboard.
-2. Run core training plus optional Morgan comparison artifact if CPU time is acceptable.
+1. Wire method/column-family holdout metrics into the Russian PDF dashboard.
+2. Run optional Morgan comparison artifact if CPU time is acceptable.
 3. Add GUI/API release polish: local-public import preview, source metrics, AD flags, and uncertainty interval views.
 4. Smoke-test Streamlit and FastAPI locally.
 5. Run full tests, training, commit, push.

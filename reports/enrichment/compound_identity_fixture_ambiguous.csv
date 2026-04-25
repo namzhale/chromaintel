@@ -1,0 +1,2 @@
+status,confidence,reason,query_name,query_smiles,query_inchikey,query_pubchem_cid,query_chembl_id,candidate_count,candidate_names,candidate_pubchem_cids,candidate_chembl_ids
+ambiguous,ambiguous_name,multiple cache rows matched name or alias,Shared Name,,,,,2,Shared Name|Shared Name,702|6341,CHEMBL545|CHEMBL14449

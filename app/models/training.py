@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,7 @@ class ModelMetrics:
     mae: float
     rmse: float
     r2: float
+    spearman: float
 
 
 @dataclass(frozen=True)
@@ -204,6 +206,22 @@ def train_forward_models(
     applicability_domain = _applicability_domain_metadata(train, numeric, categorical)
     cv_metrics = _cv_metrics_frame({"rt_min": rt_cv_results, "quality_score": quality_cv_results}, group_column, usable)
     source_holdout_metrics = _source_family_holdout_metrics(models, usable, feature_columns, ["rt_min", "quality_score"], group_column)
+    method_holdout_metrics = _method_holdout_metrics(models, usable, feature_columns, ["rt_min", "quality_score"], group_column)
+    column_family_holdout_metrics = _column_family_holdout_metrics(
+        models,
+        usable,
+        feature_columns,
+        ["rt_min", "quality_score"],
+        group_column,
+    )
+    evaluation_matrix = _evaluation_matrix(
+        rt_results=rt_results,
+        quality_results=quality_results,
+        cv_metrics=cv_metrics,
+        holdout_metrics=[source_holdout_metrics, method_holdout_metrics, column_family_holdout_metrics],
+        test=test,
+        full_frame=usable,
+    )
     retention_order_metrics = _retention_order_metrics(test_predictions)
     validation_metadata = {
         "split_strategy": "group_shuffle_holdout_with_group_kfold_model_selection",
@@ -228,6 +246,7 @@ def train_forward_models(
         test,
         str(validation_metadata["group_column"]),
     )
+    split_manifest = _split_manifest(train, validation, test, usable, group_column, validation_metadata)
 
     metadata = {
         "best_rt_model": best_rt_name,
@@ -256,6 +275,10 @@ def train_forward_models(
         "quality_cv_metrics": _cv_metrics_payload(quality_cv_results),
         "cv_metrics": cv_metrics.to_dict("records"),
         "source_holdout_metrics": source_holdout_metrics.to_dict("records"),
+        "method_holdout_metrics": method_holdout_metrics.to_dict("records"),
+        "column_family_holdout_metrics": column_family_holdout_metrics.to_dict("records"),
+        "evaluation_matrix": evaluation_matrix.to_dict("records"),
+        "split_manifest": split_manifest,
         "retention_order_metrics": retention_order_metrics.to_dict("records"),
         "provisional_quality_note": (
             "Quality score is provisional. It uses observed quality_score when present; "
@@ -271,6 +294,10 @@ def train_forward_models(
         feature_importance=feature_importance,
         cv_metrics=cv_metrics,
         source_holdout_metrics=source_holdout_metrics,
+        method_holdout_metrics=method_holdout_metrics,
+        column_family_holdout_metrics=column_family_holdout_metrics,
+        evaluation_matrix=evaluation_matrix,
+        split_manifest=split_manifest,
         retention_order_metrics=retention_order_metrics,
         metadata=metadata,
         report_dir=report_dir,
@@ -380,17 +407,30 @@ def _aggregate_fold_metrics(fold_metrics: list[ModelMetrics], n_folds: int) -> d
         "mae": np.array([metric.mae for metric in fold_metrics], dtype=float),
         "rmse": np.array([metric.rmse for metric in fold_metrics], dtype=float),
         "r2": np.array([metric.r2 for metric in fold_metrics], dtype=float),
+        "spearman": np.array([metric.spearman for metric in fold_metrics], dtype=float),
     }
     return {
         "n_folds": n_folds,
         "folds": [metric.__dict__ for metric in fold_metrics],
-        "mae_mean": float(np.nanmean(values["mae"])),
-        "mae_std": float(np.nanstd(values["mae"])),
-        "rmse_mean": float(np.nanmean(values["rmse"])),
-        "rmse_std": float(np.nanstd(values["rmse"])),
-        "r2_mean": float(np.nanmean(values["r2"])),
-        "r2_std": float(np.nanstd(values["r2"])),
+        "mae_mean": _nan_mean(values["mae"]),
+        "mae_std": _nan_std(values["mae"]),
+        "rmse_mean": _nan_mean(values["rmse"]),
+        "rmse_std": _nan_std(values["rmse"]),
+        "r2_mean": _nan_mean(values["r2"]),
+        "r2_std": _nan_std(values["r2"]),
+        "spearman_mean": _nan_mean(values["spearman"]),
+        "spearman_std": _nan_std(values["spearman"]),
     }
+
+
+def _nan_mean(values: np.ndarray) -> float:
+    finite = values[np.isfinite(values)]
+    return float(finite.mean()) if len(finite) else float("nan")
+
+
+def _nan_std(values: np.ndarray) -> float:
+    finite = values[np.isfinite(values)]
+    return float(finite.std()) if len(finite) else float("nan")
 
 
 def _cv_metrics_payload(cv_results: dict[str, dict[str, Any]]) -> dict[str, dict[str, float]]:
@@ -404,6 +444,8 @@ def _cv_metrics_payload(cv_results: dict[str, dict[str, Any]]) -> dict[str, dict
             "cv_rmse_std": payload["rmse_std"],
             "cv_r2_mean": payload["r2_mean"],
             "cv_r2_std": payload["r2_std"],
+            "cv_spearman_mean": payload["spearman_mean"],
+            "cv_spearman_std": payload["spearman_std"],
             "n_folds": float(payload["n_folds"]),
         }
         for name, payload in cv_results.items()
@@ -436,6 +478,8 @@ def _cv_metrics_frame(
                     "rmse_std": payload["rmse_std"],
                     "r2_mean": payload["r2_mean"],
                     "r2_std": payload["r2_std"],
+                    "spearman_mean": payload["spearman_mean"],
+                    "spearman_std": payload["spearman_std"],
                 }
             )
     return pd.DataFrame(rows)
@@ -456,14 +500,125 @@ def _source_family_holdout_metrics(
         return pd.DataFrame()
 
     families = frame["source_dataset"].map(_source_family)
+    return _categorical_holdout_metrics(
+        models=models,
+        frame=frame,
+        feature_columns=feature_columns,
+        targets=targets,
+        group_column=group_column,
+        labels=families,
+        validation_scope="source_family_holdout",
+        holdout_column="holdout_family",
+        min_holdout_rows=min_holdout_rows,
+        min_train_rows=min_train_rows,
+        count_column="n_train_sources",
+        count_source=frame["source_dataset"],
+    )
+
+
+def _method_holdout_metrics(
+    models: dict[str, Pipeline],
+    frame: pd.DataFrame,
+    feature_columns: list[str],
+    targets: list[str],
+    group_column: str,
+    min_holdout_rows: int | None = None,
+    min_train_rows: int | None = None,
+    max_holdouts: int = 3,
+) -> pd.DataFrame:
+    """Hold out whole LC method condition families."""
+
+    method_columns = [col for col in ["column_name", "mobile_phase_system"] if col in frame]
+    if not method_columns:
+        return pd.DataFrame()
+    min_holdout_rows = _diagnostic_min_holdout_rows(frame, min_holdout_rows)
+    min_train_rows = _diagnostic_min_train_rows(frame, min_train_rows)
+    labels = frame[method_columns].fillna("unknown").astype(str).agg(" | ".join, axis=1)
+    return _categorical_holdout_metrics(
+        models=models,
+        frame=frame,
+        feature_columns=feature_columns,
+        targets=targets,
+        group_column=group_column,
+        labels=labels,
+        validation_scope="method_holdout",
+        holdout_column="holdout_method",
+        min_holdout_rows=min_holdout_rows,
+        min_train_rows=min_train_rows,
+        max_holdouts=max_holdouts,
+        count_column="n_train_methods",
+        count_source=labels,
+    )
+
+
+def _column_family_holdout_metrics(
+    models: dict[str, Pipeline],
+    frame: pd.DataFrame,
+    feature_columns: list[str],
+    targets: list[str],
+    group_column: str,
+    min_holdout_rows: int | None = None,
+    min_train_rows: int | None = None,
+    max_holdouts: int = 3,
+) -> pd.DataFrame:
+    """Hold out column chemistry/stationary-phase families."""
+
+    family_column = "column_chemistry" if "column_chemistry" in frame else "stationary_phase_type"
+    if family_column not in frame:
+        return pd.DataFrame()
+    min_holdout_rows = _diagnostic_min_holdout_rows(frame, min_holdout_rows)
+    min_train_rows = _diagnostic_min_train_rows(frame, min_train_rows)
+    labels = frame[family_column].fillna("unknown").astype(str)
+    return _categorical_holdout_metrics(
+        models=models,
+        frame=frame,
+        feature_columns=feature_columns,
+        targets=targets,
+        group_column=group_column,
+        labels=labels,
+        validation_scope="column_family_holdout",
+        holdout_column="holdout_column_family",
+        min_holdout_rows=min_holdout_rows,
+        min_train_rows=min_train_rows,
+        max_holdouts=max_holdouts,
+        count_column="n_train_column_families",
+        count_source=labels,
+    )
+
+
+def _categorical_holdout_metrics(
+    models: dict[str, Pipeline],
+    frame: pd.DataFrame,
+    feature_columns: list[str],
+    targets: list[str],
+    group_column: str,
+    labels: pd.Series,
+    validation_scope: str,
+    holdout_column: str,
+    min_holdout_rows: int,
+    min_train_rows: int,
+    count_column: str,
+    count_source: pd.Series,
+    max_holdouts: int | None = None,
+) -> pd.DataFrame:
+    """Train without each categorical label and evaluate transfer to that held-out label."""
+
+    labels = pd.Series(labels, index=frame.index, dtype="object")
+    count_source = pd.Series(count_source, index=frame.index, dtype="object")
     rows = []
-    for family, holdout_idx in families.groupby(families).groups.items():
+    eligible_labels = labels.value_counts(dropna=False)
+    eligible_labels = eligible_labels[eligible_labels >= min_holdout_rows]
+    if max_holdouts is not None:
+        eligible_labels = eligible_labels.head(max_holdouts)
+    for holdout_key in eligible_labels.index:
+        holdout_idx = labels[labels == holdout_key].index
         holdout = frame.loc[holdout_idx]
         train = frame.loc[~frame.index.isin(holdout.index)]
         if len(holdout) < min_holdout_rows or len(train) < min_train_rows:
             continue
         train_groups = _groups_for_split(train, group_column)
         holdout_groups = _groups_for_split(holdout, group_column)
+        mean_runtime = _mean_runtime_min(holdout)
         for target in targets:
             for model_name, model in models.items():
                 fitted = copy.deepcopy(model)
@@ -473,18 +628,22 @@ def _source_family_holdout_metrics(
                 metrics = _metrics(holdout[target], predictions)
                 rows.append(
                     {
-                        "validation_scope": "source_family_holdout",
-                        "holdout_family": family,
+                        "validation_scope": validation_scope,
+                        holdout_column: holdout_key,
+                        "holdout_key": str(holdout_key),
                         "target": target,
                         "model": model_name,
                         "n_train": int(len(train)),
                         "n_holdout": int(len(holdout)),
-                        "n_train_sources": int(train["source_dataset"].nunique()),
+                        count_column: int(count_source.loc[train.index].nunique()),
                         "n_train_groups": int(train_groups.nunique()),
                         "n_holdout_groups": int(holdout_groups.nunique()),
+                        "mean_runtime_min": mean_runtime,
                         "mae": metrics.mae,
                         "rmse": metrics.rmse,
                         "r2": metrics.r2,
+                        "spearman": metrics.spearman,
+                        "normalized_mae_runtime_pct": _normalized_mae_runtime_pct(metrics.mae, mean_runtime, target),
                         "mean_bias": float(errors.mean()),
                         "median_abs_error": float(errors.abs().median()),
                     }
@@ -495,6 +654,192 @@ def _source_family_holdout_metrics(
 def _source_family(source_dataset: object) -> str:
     text = "unknown" if pd.isna(source_dataset) else str(source_dataset)
     return text.split(":", 1)[0]
+
+
+def _evaluation_matrix(
+    rt_results: dict[str, dict[str, Any]],
+    quality_results: dict[str, dict[str, Any]],
+    cv_metrics: pd.DataFrame,
+    holdout_metrics: list[pd.DataFrame],
+    test: pd.DataFrame,
+    full_frame: pd.DataFrame,
+) -> pd.DataFrame:
+    """Build one long-form matrix for all model evaluation diagnostics."""
+
+    rows: list[dict[str, Any]] = []
+    test_runtime = _mean_runtime_min(test)
+    for target, results in {"rt_min": rt_results, "quality_score": quality_results}.items():
+        for model, payload in results.items():
+            metrics = payload["test"]
+            rows.append(
+                {
+                    "validation_scope": "final_grouped_holdout",
+                    "split_name": "test",
+                    "holdout_key": "test",
+                    "target": target,
+                    "model": model,
+                    "n_rows": int(len(test)),
+                    "n_train": np.nan,
+                    "n_holdout": int(len(test)),
+                    "n_groups": np.nan,
+                    "n_folds": np.nan,
+                    "mean_runtime_min": test_runtime,
+                    "mae": metrics.mae,
+                    "rmse": metrics.rmse,
+                    "r2": metrics.r2,
+                    "spearman": metrics.spearman,
+                    "normalized_mae_runtime_pct": _normalized_mae_runtime_pct(metrics.mae, test_runtime, target),
+                    "mean_bias": np.nan,
+                    "median_abs_error": np.nan,
+                }
+            )
+
+    full_runtime = _mean_runtime_min(full_frame)
+    for _, row in cv_metrics.iterrows():
+        rows.append(
+            {
+                "validation_scope": row["validation_scope"],
+                "split_name": "mean",
+                "holdout_key": "GroupKFold",
+                "target": row["target"],
+                "model": row["model"],
+                "n_rows": int(row["n_rows"]),
+                "n_train": np.nan,
+                "n_holdout": np.nan,
+                "n_groups": int(row["n_groups"]),
+                "n_folds": int(row["n_folds"]),
+                "mean_runtime_min": full_runtime,
+                "mae": row["mae_mean"],
+                "rmse": row["rmse_mean"],
+                "r2": row["r2_mean"],
+                "spearman": row["spearman_mean"],
+                "normalized_mae_runtime_pct": _normalized_mae_runtime_pct(row["mae_mean"], full_runtime, row["target"]),
+                "mean_bias": np.nan,
+                "median_abs_error": np.nan,
+            }
+        )
+
+    for metrics_frame in holdout_metrics:
+        if metrics_frame.empty:
+            continue
+        for _, row in metrics_frame.iterrows():
+            rows.append(
+                {
+                    "validation_scope": row["validation_scope"],
+                    "split_name": "holdout",
+                    "holdout_key": row.get("holdout_key", row.get("holdout_family", "")),
+                    "target": row["target"],
+                    "model": row["model"],
+                    "n_rows": int(row["n_holdout"]),
+                    "n_train": int(row["n_train"]),
+                    "n_holdout": int(row["n_holdout"]),
+                    "n_groups": int(row["n_holdout_groups"]),
+                    "n_folds": np.nan,
+                    "mean_runtime_min": row.get("mean_runtime_min", np.nan),
+                    "mae": row["mae"],
+                    "rmse": row["rmse"],
+                    "r2": row["r2"],
+                    "spearman": row.get("spearman", np.nan),
+                    "normalized_mae_runtime_pct": row.get("normalized_mae_runtime_pct", np.nan),
+                    "mean_bias": row.get("mean_bias", np.nan),
+                    "median_abs_error": row.get("median_abs_error", np.nan),
+                }
+            )
+
+    columns = [
+        "validation_scope",
+        "split_name",
+        "holdout_key",
+        "target",
+        "model",
+        "n_rows",
+        "n_train",
+        "n_holdout",
+        "n_groups",
+        "n_folds",
+        "mean_runtime_min",
+        "mae",
+        "rmse",
+        "r2",
+        "spearman",
+        "normalized_mae_runtime_pct",
+        "mean_bias",
+        "median_abs_error",
+    ]
+    if not rows:
+        return pd.DataFrame(columns=columns)
+    return pd.DataFrame(rows, columns=columns).drop_duplicates(
+        subset=["validation_scope", "target", "model", "split_name", "holdout_key"]
+    )
+
+
+def _split_manifest(
+    train: pd.DataFrame,
+    validation: pd.DataFrame,
+    test: pd.DataFrame,
+    full_frame: pd.DataFrame,
+    group_column: str,
+    validation_metadata: dict[str, Any],
+) -> dict[str, Any]:
+    """Persist split identifiers and diagnostic scope definitions."""
+
+    def split_payload(name: str, frame: pd.DataFrame) -> dict[str, Any]:
+        groups = _groups_for_split(frame, group_column)
+        return {
+            "name": name,
+            "n_rows": int(len(frame)),
+            "n_groups": int(groups.nunique()),
+            "row_indices": [int(index) if isinstance(index, (int, np.integer)) else str(index) for index in frame.index],
+            "groups": sorted(str(value) for value in groups.unique()),
+            "source_counts": _source_counts(frame),
+        }
+
+    return {
+        "split_strategy": validation_metadata["split_strategy"],
+        "cv_strategy": validation_metadata["cv_strategy"],
+        "group_column": group_column,
+        "n_rows": int(len(full_frame)),
+        "n_groups": int(_groups_for_split(full_frame, group_column).nunique()),
+        "group_overlap_counts": validation_metadata["group_overlap_counts"],
+        "splits": {
+            "train": split_payload("train", train),
+            "validation": split_payload("validation", validation),
+            "test": split_payload("test", test),
+        },
+        "diagnostics": {
+            "source_family_holdout": {"scope": "source_family_holdout", "holdout": "source_dataset family"},
+            "method_holdout": {
+                "scope": "method_holdout",
+                "holdout": "column_name | mobile_phase_system",
+            },
+            "column_family_holdout": {"scope": "column_family_holdout", "holdout": "column_chemistry"},
+        },
+    }
+
+
+def _mean_runtime_min(frame: pd.DataFrame) -> float:
+    if "total_runtime_min" not in frame:
+        return float("nan")
+    runtime = pd.to_numeric(frame["total_runtime_min"], errors="coerce")
+    return float(runtime.mean()) if runtime.notna().any() else float("nan")
+
+
+def _diagnostic_min_holdout_rows(frame: pd.DataFrame, explicit_minimum: int | None) -> int:
+    if explicit_minimum is not None:
+        return explicit_minimum
+    return 3 if len(frame) < 100 else 50
+
+
+def _diagnostic_min_train_rows(frame: pd.DataFrame, explicit_minimum: int | None) -> int:
+    if explicit_minimum is not None:
+        return explicit_minimum
+    return 8 if len(frame) < 100 else 50
+
+
+def _normalized_mae_runtime_pct(mae: float, mean_runtime_min: float, target: object) -> float:
+    if target != "rt_min" or not np.isfinite(mean_runtime_min) or mean_runtime_min <= 0:
+        return float("nan")
+    return float(mae / mean_runtime_min * 100.0)
 
 
 def _retention_order_metrics(
@@ -579,6 +924,10 @@ def generate_training_outputs(
     retention_order_metrics: pd.DataFrame | None = None,
     report_dir: str | Path = "reports",
     plots_dir: str | Path = "data/processed/plots",
+    method_holdout_metrics: pd.DataFrame | None = None,
+    column_family_holdout_metrics: pd.DataFrame | None = None,
+    evaluation_matrix: pd.DataFrame | None = None,
+    split_manifest: dict[str, Any] | None = None,
 ) -> Path:
     """Write demo-ready evaluation plots and markdown report."""
 
@@ -621,7 +970,14 @@ def generate_training_outputs(
     report = report_dir / "model_training_summary.md"
     cv_metrics = pd.DataFrame() if cv_metrics is None else cv_metrics
     source_holdout_metrics = pd.DataFrame() if source_holdout_metrics is None else source_holdout_metrics
+    method_holdout_metrics = pd.DataFrame() if method_holdout_metrics is None else method_holdout_metrics
+    column_family_holdout_metrics = (
+        pd.DataFrame() if column_family_holdout_metrics is None else column_family_holdout_metrics
+    )
+    evaluation_matrix = pd.DataFrame() if evaluation_matrix is None else evaluation_matrix
+    split_manifest = {} if split_manifest is None else split_manifest
     retention_order_metrics = pd.DataFrame() if retention_order_metrics is None else retention_order_metrics
+    benchmark_matrix = _model_benchmark_matrix(evaluation_matrix)
     if not source_holdout_metrics.empty:
         px.bar(
             source_holdout_metrics[source_holdout_metrics["target"].eq("rt_min")],
@@ -632,7 +988,17 @@ def generate_training_outputs(
             title="Source-family Holdout RT MAE",
         ).write_html(plots_dir / "source_holdout_performance.html")
     report.write_text(
-        _report_markdown(model_matrix, metadata, source_perf, cv_metrics, source_holdout_metrics, retention_order_metrics),
+        _report_markdown(
+            model_matrix,
+            metadata,
+            source_perf,
+            cv_metrics,
+            source_holdout_metrics,
+            method_holdout_metrics,
+            column_family_holdout_metrics,
+            evaluation_matrix,
+            retention_order_metrics,
+        ),
         encoding="utf-8",
     )
     test_predictions.to_csv(report_dir / "test_predictions.csv", index=False)
@@ -640,6 +1006,20 @@ def generate_training_outputs(
     source_perf.to_csv(report_dir / "source_metrics.csv", index=False)
     cv_metrics.to_csv(report_dir / "cv_metrics.csv", index=False)
     source_holdout_metrics.to_csv(report_dir / "source_holdout_metrics.csv", index=False)
+    method_holdout_metrics.to_csv(report_dir / "method_holdout_metrics.csv", index=False)
+    column_family_holdout_metrics.to_csv(report_dir / "column_family_holdout_metrics.csv", index=False)
+    evaluation_matrix.to_csv(report_dir / "evaluation_matrix.csv", index=False)
+    (report_dir / "evaluation_matrix.md").write_text(_evaluation_matrix_markdown(evaluation_matrix), encoding="utf-8")
+    benchmark_matrix.to_csv(report_dir / "model_benchmark_matrix.csv", index=False)
+    (report_dir / "model_benchmark_matrix.md").write_text(_model_benchmark_matrix_markdown(benchmark_matrix), encoding="utf-8")
+    (report_dir / "model_benchmark_matrix.json").write_text(
+        json.dumps(benchmark_matrix.fillna("").to_dict("records"), indent=2),
+        encoding="utf-8",
+    )
+    (report_dir / "split_manifest.json").write_text(
+        json.dumps(split_manifest, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
     retention_order_metrics.to_csv(report_dir / "retention_order_metrics.csv", index=False)
     (report_dir / "sota_model_experiments.md").write_text(_sota_markdown(metadata), encoding="utf-8")
     return report
@@ -774,14 +1154,23 @@ def _fit_and_score(
 
 def _metrics(y_true: pd.Series, y_pred: np.ndarray) -> ModelMetrics:
     true_values = pd.to_numeric(y_true, errors="coerce").to_numpy(dtype=float)
+    pred_values = np.asarray(y_pred, dtype=float)
     finite_values = true_values[np.isfinite(true_values)]
     r2 = float("nan")
+    spearman = float("nan")
     if len(finite_values) > 1 and float(np.nanstd(finite_values)) > 1e-8:
         r2 = float(r2_score(y_true, y_pred))
+    finite_mask = np.isfinite(true_values) & np.isfinite(pred_values)
+    if finite_mask.sum() > 1:
+        finite_true = true_values[finite_mask]
+        finite_pred = pred_values[finite_mask]
+        if float(np.nanstd(finite_true)) > 1e-8 and float(np.nanstd(finite_pred)) > 1e-8:
+            spearman = float(pd.Series(finite_true).corr(pd.Series(finite_pred), method="spearman"))
     return ModelMetrics(
         mae=float(mean_absolute_error(y_true, y_pred)),
         rmse=float(mean_squared_error(y_true, y_pred) ** 0.5),
         r2=r2,
+        spearman=spearman,
     )
 
 
@@ -791,9 +1180,11 @@ def _metrics_payload(results: dict[str, dict[str, Any]]) -> dict[str, dict[str, 
             "validation_mae": payload["validation"].mae,
             "validation_rmse": payload["validation"].rmse,
             "validation_r2": payload["validation"].r2,
+            "validation_spearman": payload["validation"].spearman,
             "test_mae": payload["test"].mae,
             "test_rmse": payload["test"].rmse,
             "test_r2": payload["test"].r2,
+            "test_spearman": payload["test"].spearman,
         }
         for name, payload in results.items()
     }
@@ -999,6 +1390,7 @@ def _sota_markdown(metadata: dict[str, Any]) -> str:
     rt_metrics = _markdown_table(pd.DataFrame(metadata["rt_metrics"]).T.round(3).reset_index(names="model"))
     quality_metrics = _markdown_table(pd.DataFrame(metadata["quality_metrics"]).T.round(3).reset_index(names="model"))
     cv_metrics = _markdown_table(pd.DataFrame(metadata.get("cv_metrics", [])).round(3))
+    evaluation_matrix = _markdown_table(pd.DataFrame(metadata.get("evaluation_matrix", [])).round(3).head(40))
     retention_order = _markdown_table(pd.DataFrame(metadata.get("retention_order_metrics", [])).round(3))
     return f"""# SOTA Model Experiments
 
@@ -1010,6 +1402,10 @@ This bounded experiment compares CPU-practical tabular regressors for the curren
 ## Grouped CV Metrics
 
 {cv_metrics}
+
+## Evaluation Matrix
+
+{evaluation_matrix}
 
 ## Final Grouped Holdout RT Metrics
 
@@ -1035,6 +1431,9 @@ def _report_markdown(
     source_perf: pd.DataFrame,
     cv_metrics: pd.DataFrame,
     source_holdout_metrics: pd.DataFrame,
+    method_holdout_metrics: pd.DataFrame,
+    column_family_holdout_metrics: pd.DataFrame,
+    evaluation_matrix: pd.DataFrame,
     retention_order_metrics: pd.DataFrame,
 ) -> str:
     source_counts = model_matrix["source_dataset"].value_counts(dropna=False).to_dict()
@@ -1043,6 +1442,9 @@ def _report_markdown(
     source_table = _markdown_table(source_perf.round(3))
     cv_table = _markdown_table(cv_metrics.round(3))
     holdout_table = _markdown_table(source_holdout_metrics.round(3))
+    method_holdout_table = _markdown_table(method_holdout_metrics.round(3))
+    column_holdout_table = _markdown_table(column_family_holdout_metrics.round(3))
+    evaluation_table = _markdown_table(evaluation_matrix.round(3).head(40))
     retention_order_table = _markdown_table(retention_order_metrics.round(3))
     model_lines = "\n".join(f"- {name}" for name in metadata.get("candidate_models", []))
     feature_group_counts = metadata.get("feature_group_counts", {})
@@ -1067,6 +1469,12 @@ The model uses RDKit compound descriptors, simplified LC gradient encodings, col
 - Model selection: GroupKFold by `{metadata['validation_metadata']['group_column']}`.
 - Final holdout: group-aware train/validation/test split with no compound identity overlap between splits.
 - Source-family holdout: train without each large source family and test on that held-out family.
+- Method holdout: train without whole LC method condition families and test on the held-out method.
+- Column-family holdout: train without each column chemistry family and test on that held-out family.
+
+## Evaluation Matrix
+
+{evaluation_table}
 
 ## Models Tested
 
@@ -1096,6 +1504,14 @@ The model uses RDKit compound descriptors, simplified LC gradient encodings, col
 ## Source-Family Holdout Metrics
 
 {holdout_table}
+
+## Method Holdout Metrics
+
+{method_holdout_table}
+
+## Column-Family Holdout Metrics
+
+{column_holdout_table}
 
 ## Retention-Order Diagnostic
 
@@ -1133,7 +1549,7 @@ def _markdown_table(frame: pd.DataFrame) -> str:
 
     if frame.empty:
         return "_No rows._"
-    text_frame = frame.fillna("").astype(str)
+    text_frame = frame.fillna("").astype(str).apply(lambda column: column.str.replace("|", "\\|", regex=False))
     headers = list(text_frame.columns)
     lines = [
         "| " + " | ".join(headers) + " |",
@@ -1142,3 +1558,93 @@ def _markdown_table(frame: pd.DataFrame) -> str:
     for _, row in text_frame.iterrows():
         lines.append("| " + " | ".join(row[col] for col in headers) + " |")
     return "\n".join(lines)
+
+
+def _evaluation_matrix_markdown(evaluation_matrix: pd.DataFrame) -> str:
+    if evaluation_matrix.empty:
+        table = "_No rows._"
+    else:
+        display_columns = [
+            "validation_scope",
+            "target",
+            "model",
+            "holdout_key",
+            "n_rows",
+            "mae",
+            "rmse",
+            "r2",
+            "spearman",
+            "normalized_mae_runtime_pct",
+        ]
+        table = _markdown_table(evaluation_matrix[display_columns].round(3))
+    return f"""# Evaluation Matrix
+
+Long-form diagnostics for grouped CV, final grouped holdout, source-family holdout, method holdout, and column-family holdout. `normalized_mae_runtime_pct` is reported for RT rows as MAE divided by mean runtime for the evaluated rows.
+
+{table}
+"""
+
+
+def _model_benchmark_matrix(evaluation_matrix: pd.DataFrame) -> pd.DataFrame:
+    """Return analyst-facing benchmark rows from the long-form evaluation matrix."""
+
+    if evaluation_matrix.empty:
+        return pd.DataFrame(
+            columns=[
+                "model_family",
+                "feature_set",
+                "target",
+                "split",
+                "holdout_key",
+                "mae",
+                "rmse",
+                "r2",
+                "spearman",
+                "normalized_mae_runtime_pct",
+                "n_rows",
+            ]
+        )
+    columns = [
+        "model",
+        "target",
+        "validation_scope",
+        "holdout_key",
+        "mae",
+        "rmse",
+        "r2",
+        "spearman",
+        "normalized_mae_runtime_pct",
+        "n_rows",
+    ]
+    available = [column for column in columns if column in evaluation_matrix]
+    benchmark = evaluation_matrix[available].copy()
+    benchmark = benchmark.rename(columns={"model": "model_family", "validation_scope": "split"})
+    benchmark.insert(1, "feature_set", "core")
+    sort_columns = [column for column in ["target", "split", "mae", "model_family"] if column in benchmark]
+    return benchmark.sort_values(sort_columns, na_position="last").reset_index(drop=True)
+
+
+def _model_benchmark_matrix_markdown(benchmark_matrix: pd.DataFrame) -> str:
+    display_columns = [
+        "model_family",
+        "feature_set",
+        "target",
+        "split",
+        "holdout_key",
+        "n_rows",
+        "mae",
+        "rmse",
+        "r2",
+        "spearman",
+        "normalized_mae_runtime_pct",
+    ]
+    if benchmark_matrix.empty:
+        table = "_No rows._"
+    else:
+        table = _markdown_table(benchmark_matrix[display_columns].head(80).round(3))
+    return f"""# Model Benchmark Matrix
+
+Unified tabular benchmark exported from `reports/evaluation_matrix.csv`. Lower MAE/RMSE and lower normalized MAE are better; higher R2/Spearman is better. Optional graph and transformer branches are documented separately under `reports/benchmarks/` until full training dependencies are installed.
+
+{table}
+"""

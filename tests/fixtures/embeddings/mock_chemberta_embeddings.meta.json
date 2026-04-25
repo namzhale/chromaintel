@@ -1,0 +1,7 @@
+{
+  "encoder_family": "ChemBERTa",
+  "model_id": "mock/chemberta-offline-fixture",
+  "embedding_dim": 3,
+  "pooling": "mean",
+  "created_for": "offline transformer embedding tests"
+}

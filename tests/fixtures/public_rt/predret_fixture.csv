@@ -1,0 +1,3 @@
+Name,SMILES,InChIKey,RT,Column,Stationary Phase,Mobile A,Mobile B,pH,Gradient,Initial B,Final B,Runtime,Temperature,Flow,Source ID
+Caffeine,Cn1cnc2c1c(=O)n(C)c(=O)n2C,RYYVLZVUVIJVGH-UHFFFAOYSA-N,1.25,Waters BEH C18,C18,Water + 0.1% formic acid,Acetonitrile + 0.1% formic acid,3.0,5-95% B over 5 min,5,95,7,40,0.3,PREDRET-001
+Aspirin,CC(=O)Oc1ccccc1C(=O)O,BSYNRYMUTXBXSQ-UHFFFAOYSA-N,3.40,Waters BEH C18,C18,Water + 0.1% formic acid,Acetonitrile + 0.1% formic acid,3.0,5-95% B over 5 min,5,95,7,40,0.3,PREDRET-002

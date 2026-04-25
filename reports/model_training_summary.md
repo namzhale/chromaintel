@@ -19,6 +19,53 @@ The model uses RDKit compound descriptors, simplified LC gradient encodings, col
 - Model selection: GroupKFold by `inchikey`.
 - Final holdout: group-aware train/validation/test split with no compound identity overlap between splits.
 - Source-family holdout: train without each large source family and test on that held-out family.
+- Method holdout: train without whole LC method condition families and test on the held-out method.
+- Column-family holdout: train without each column chemistry family and test on that held-out family.
+
+## Evaluation Matrix
+
+| validation_scope | split_name | holdout_key | target | model | n_rows | n_train | n_holdout | n_groups | n_folds | mean_runtime_min | mae | rmse | r2 | spearman | normalized_mae_runtime_pct | mean_bias | median_abs_error |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| final_grouped_holdout | test | test | rt_min | linear_ridge | 3247 |  | 3247.0 |  |  | 29.616 | 3.891 | 5.737 | 0.737 | 0.819 | 13.137 |  |  |
+| final_grouped_holdout | test | test | rt_min | random_forest | 3247 |  | 3247.0 |  |  | 29.616 | 1.989 | 3.474 | 0.904 | 0.942 | 6.717 |  |  |
+| final_grouped_holdout | test | test | rt_min | extra_trees | 3247 |  | 3247.0 |  |  | 29.616 | 1.861 | 3.173 | 0.92 | 0.95 | 6.285 |  |  |
+| final_grouped_holdout | test | test | rt_min | hist_gradient_boosting | 3247 |  | 3247.0 |  |  | 29.616 | 2.095 | 3.463 | 0.904 | 0.941 | 7.074 |  |  |
+| final_grouped_holdout | test | test | rt_min | xgboost | 3247 |  | 3247.0 |  |  | 29.616 | 1.991 | 3.36 | 0.91 | 0.946 | 6.724 |  |  |
+| final_grouped_holdout | test | test | rt_min | catboost | 3247 |  | 3247.0 |  |  | 29.616 | 2.186 | 3.494 | 0.903 | 0.935 | 7.381 |  |  |
+| final_grouped_holdout | test | test | quality_score | linear_ridge | 3247 |  | 3247.0 |  |  | 29.616 | 0.0 | 0.003 | 0.85 | 0.053 |  |  |  |
+| final_grouped_holdout | test | test | quality_score | random_forest | 3247 |  | 3247.0 |  |  | 29.616 | 0.0 | 0.002 | 0.938 | 1.0 |  |  |  |
+| final_grouped_holdout | test | test | quality_score | extra_trees | 3247 |  | 3247.0 |  |  | 29.616 | 0.0 | 0.002 | 0.948 | 1.0 |  |  |  |
+| final_grouped_holdout | test | test | quality_score | hist_gradient_boosting | 3247 |  | 3247.0 |  |  | 29.616 | 0.0 | 0.005 | 0.69 | 0.057 |  |  |  |
+| final_grouped_holdout | test | test | quality_score | xgboost | 3247 |  | 3247.0 |  |  | 29.616 | 0.0 | 0.003 | 0.908 | 1.0 |  |  |  |
+| final_grouped_holdout | test | test | quality_score | catboost | 3247 |  | 3247.0 |  |  | 29.616 | 0.0 | 0.003 | 0.912 | 0.053 |  |  |  |
+| group_kfold | mean | GroupKFold | rt_min | linear_ridge | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 3.776 | 5.681 | 0.709 | 0.797 | 12.832 |  |  |
+| group_kfold | mean | GroupKFold | rt_min | random_forest | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 1.983 | 3.346 | 0.898 | 0.93 | 6.74 |  |  |
+| group_kfold | mean | GroupKFold | rt_min | extra_trees | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 1.849 | 3.163 | 0.909 | 0.94 | 6.285 |  |  |
+| group_kfold | mean | GroupKFold | rt_min | hist_gradient_boosting | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 2.072 | 3.396 | 0.895 | 0.928 | 7.042 |  |  |
+| group_kfold | mean | GroupKFold | rt_min | xgboost | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 2.03 | 3.32 | 0.9 | 0.931 | 6.9 |  |  |
+| group_kfold | mean | GroupKFold | rt_min | catboost | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 2.164 | 3.363 | 0.897 | 0.923 | 7.355 |  |  |
+| group_kfold | mean | GroupKFold | quality_score | linear_ridge | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 0.0 | 0.003 | 0.554 | 0.075 |  |  |  |
+| group_kfold | mean | GroupKFold | quality_score | random_forest | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 0.0 | 0.001 | 0.95 | 1.0 |  |  |  |
+| group_kfold | mean | GroupKFold | quality_score | extra_trees | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 0.0 | 0.001 | 0.901 | 1.0 |  |  |  |
+| group_kfold | mean | GroupKFold | quality_score | hist_gradient_boosting | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 0.0 | 0.005 | 0.2 | 0.227 |  |  |  |
+| group_kfold | mean | GroupKFold | quality_score | xgboost | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 0.0 | 0.001 | 0.897 | 1.0 |  |  |  |
+| group_kfold | mean | GroupKFold | quality_score | catboost | 15052 |  |  | 2785.0 | 5.0 | 29.424 | 0.0 | 0.001 | 0.919 | 0.075 |  |  |  |
+| source_family_holdout | holdout | MCMRT | rt_min | linear_ridge | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 5.335 | 6.998 | 0.517 | 0.754 | 16.571 | 3.841 | 4.364 |
+| source_family_holdout | holdout | MCMRT | rt_min | random_forest | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 3.625 | 4.858 | 0.767 | 0.825 | 11.261 | -1.118 | 2.797 |
+| source_family_holdout | holdout | MCMRT | rt_min | extra_trees | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 4.016 | 5.464 | 0.705 | 0.818 | 12.476 | -0.575 | 2.921 |
+| source_family_holdout | holdout | MCMRT | rt_min | hist_gradient_boosting | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 3.585 | 4.904 | 0.763 | 0.829 | 11.136 | -0.477 | 2.579 |
+| source_family_holdout | holdout | MCMRT | rt_min | xgboost | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 3.666 | 5.007 | 0.753 | 0.798 | 11.389 | -1.367 | 2.641 |
+| source_family_holdout | holdout | MCMRT | rt_min | catboost | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 4.172 | 5.852 | 0.662 | 0.816 | 12.96 | -0.277 | 2.854 |
+| source_family_holdout | holdout | MCMRT | quality_score | linear_ridge | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 0.096 | 0.096 |  |  |  | 0.096 | 0.096 |
+| source_family_holdout | holdout | MCMRT | quality_score | random_forest | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 0.063 | 0.064 |  |  |  | 0.063 | 0.067 |
+| source_family_holdout | holdout | MCMRT | quality_score | extra_trees | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 0.129 | 0.13 |  |  |  | 0.129 | 0.132 |
+| source_family_holdout | holdout | MCMRT | quality_score | hist_gradient_boosting | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 0.009 | 0.024 |  |  |  | 0.008 | 0.001 |
+| source_family_holdout | holdout | MCMRT | quality_score | xgboost | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 0.023 | 0.025 |  |  |  | 0.023 | 0.023 |
+| source_family_holdout | holdout | MCMRT | quality_score | catboost | 10073 | 4979.0 | 10073.0 | 343.0 |  | 32.192 | 0.035 | 0.037 |  |  |  | 0.035 | 0.035 |
+| source_family_holdout | holdout | RepoRT | rt_min | linear_ridge | 4972 | 10080.0 | 4972.0 | 2507.0 |  | 23.848 | 49.538 | 64.865 | -33.162 | -0.048 | 207.726 | -40.567 | 30.983 |
+| source_family_holdout | holdout | RepoRT | rt_min | random_forest | 4972 | 10080.0 | 4972.0 | 2507.0 |  | 23.848 | 8.679 | 13.822 | -0.551 | 0.533 | 36.394 | 4.606 | 4.434 |
+| source_family_holdout | holdout | RepoRT | rt_min | extra_trees | 4972 | 10080.0 | 4972.0 | 2507.0 |  | 23.848 | 5.254 | 7.765 | 0.51 | 0.565 | 22.03 | -0.552 | 3.715 |
+| source_family_holdout | holdout | RepoRT | rt_min | hist_gradient_boosting | 4972 | 10080.0 | 4972.0 | 2507.0 |  | 23.848 | 5.184 | 8.075 | 0.471 | 0.523 | 21.737 | -1.21 | 3.305 |
 
 ## Models Tested
 
@@ -36,42 +83,42 @@ The model uses RDKit compound descriptors, simplified LC gradient encodings, col
 
 ## Grouped CV Metrics
 
-| validation_scope | target | model | group_column | n_folds | n_rows | n_groups | mae_mean | mae_std | rmse_mean | rmse_std | r2_mean | r2_std |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| group_kfold | rt_min | linear_ridge | inchikey | 5 | 15052 | 2785 | 3.776 | 0.107 | 5.681 | 0.094 | 0.709 | 0.033 |
-| group_kfold | rt_min | random_forest | inchikey | 5 | 15052 | 2785 | 1.983 | 0.046 | 3.346 | 0.194 | 0.898 | 0.019 |
-| group_kfold | rt_min | extra_trees | inchikey | 5 | 15052 | 2785 | 1.849 | 0.075 | 3.163 | 0.156 | 0.909 | 0.017 |
-| group_kfold | rt_min | hist_gradient_boosting | inchikey | 5 | 15052 | 2785 | 2.072 | 0.062 | 3.396 | 0.195 | 0.895 | 0.021 |
-| group_kfold | rt_min | xgboost | inchikey | 5 | 15052 | 2785 | 2.03 | 0.061 | 3.32 | 0.205 | 0.9 | 0.018 |
-| group_kfold | rt_min | catboost | inchikey | 5 | 15052 | 2785 | 2.164 | 0.079 | 3.363 | 0.187 | 0.897 | 0.021 |
-| group_kfold | quality_score | linear_ridge | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.003 | 0.005 | 0.554 | 0.338 |
-| group_kfold | quality_score | random_forest | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.001 | 0.001 | 0.95 | 0.027 |
-| group_kfold | quality_score | extra_trees | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.001 | 0.002 | 0.901 | 0.065 |
-| group_kfold | quality_score | hist_gradient_boosting | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.005 | 0.005 | 0.2 | 0.096 |
-| group_kfold | quality_score | xgboost | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.001 | 0.002 | 0.897 | 0.038 |
-| group_kfold | quality_score | catboost | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.001 | 0.002 | 0.919 | 0.003 |
+| validation_scope | target | model | group_column | n_folds | n_rows | n_groups | mae_mean | mae_std | rmse_mean | rmse_std | r2_mean | r2_std | spearman_mean | spearman_std |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| group_kfold | rt_min | linear_ridge | inchikey | 5 | 15052 | 2785 | 3.776 | 0.107 | 5.681 | 0.094 | 0.709 | 0.033 | 0.797 | 0.015 |
+| group_kfold | rt_min | random_forest | inchikey | 5 | 15052 | 2785 | 1.983 | 0.046 | 3.346 | 0.194 | 0.898 | 0.019 | 0.93 | 0.01 |
+| group_kfold | rt_min | extra_trees | inchikey | 5 | 15052 | 2785 | 1.849 | 0.075 | 3.163 | 0.156 | 0.909 | 0.017 | 0.94 | 0.008 |
+| group_kfold | rt_min | hist_gradient_boosting | inchikey | 5 | 15052 | 2785 | 2.072 | 0.062 | 3.396 | 0.195 | 0.895 | 0.021 | 0.928 | 0.011 |
+| group_kfold | rt_min | xgboost | inchikey | 5 | 15052 | 2785 | 2.03 | 0.061 | 3.32 | 0.205 | 0.9 | 0.018 | 0.931 | 0.009 |
+| group_kfold | rt_min | catboost | inchikey | 5 | 15052 | 2785 | 2.164 | 0.079 | 3.363 | 0.187 | 0.897 | 0.021 | 0.923 | 0.012 |
+| group_kfold | quality_score | linear_ridge | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.003 | 0.005 | 0.554 | 0.338 | 0.075 | 0.02 |
+| group_kfold | quality_score | random_forest | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.001 | 0.001 | 0.95 | 0.027 | 1.0 | 0.0 |
+| group_kfold | quality_score | extra_trees | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.001 | 0.002 | 0.901 | 0.065 | 1.0 | 0.0 |
+| group_kfold | quality_score | hist_gradient_boosting | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.005 | 0.005 | 0.2 | 0.096 | 0.227 | 0.049 |
+| group_kfold | quality_score | xgboost | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.001 | 0.002 | 0.897 | 0.038 | 1.0 | 0.0 |
+| group_kfold | quality_score | catboost | inchikey | 5 | 15052 | 2785 | 0.0 | 0.0 | 0.001 | 0.002 | 0.919 | 0.003 | 0.075 | 0.02 |
 
 ## Final Grouped Holdout RT Metrics
 
-| model | validation_mae | validation_rmse | validation_r2 | test_mae | test_rmse | test_r2 |
-| --- | --- | --- | --- | --- | --- | --- |
-| linear_ridge | 3.653 | 5.479 | 0.717 | 3.891 | 5.737 | 0.737 |
-| random_forest | 2.09 | 3.372 | 0.893 | 1.989 | 3.474 | 0.904 |
-| extra_trees | 1.917 | 3.226 | 0.902 | 1.861 | 3.173 | 0.92 |
-| hist_gradient_boosting | 2.056 | 3.171 | 0.905 | 2.095 | 3.463 | 0.904 |
-| xgboost | 2.074 | 3.281 | 0.898 | 1.991 | 3.36 | 0.91 |
-| catboost | 2.238 | 3.325 | 0.896 | 2.186 | 3.494 | 0.903 |
+| model | validation_mae | validation_rmse | validation_r2 | validation_spearman | test_mae | test_rmse | test_r2 | test_spearman |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| linear_ridge | 3.653 | 5.479 | 0.717 | 0.799 | 3.891 | 5.737 | 0.737 | 0.819 |
+| random_forest | 2.09 | 3.372 | 0.893 | 0.92 | 1.989 | 3.474 | 0.904 | 0.942 |
+| extra_trees | 1.917 | 3.226 | 0.902 | 0.93 | 1.861 | 3.173 | 0.92 | 0.95 |
+| hist_gradient_boosting | 2.056 | 3.171 | 0.905 | 0.924 | 2.095 | 3.463 | 0.904 | 0.941 |
+| xgboost | 2.074 | 3.281 | 0.898 | 0.925 | 1.991 | 3.36 | 0.91 | 0.946 |
+| catboost | 2.238 | 3.325 | 0.896 | 0.915 | 2.186 | 3.494 | 0.903 | 0.935 |
 
 ## Final Grouped Holdout Quality Metrics
 
-| model | validation_mae | validation_rmse | validation_r2 | test_mae | test_rmse | test_r2 |
-| --- | --- | --- | --- | --- | --- | --- |
-| linear_ridge | 0.0 | 0.0 |  | 0.0 | 0.003 | 0.85 |
-| random_forest | 0.0 | 0.0 |  | 0.0 | 0.002 | 0.938 |
-| extra_trees | 0.0 | 0.0 |  | 0.0 | 0.002 | 0.948 |
-| hist_gradient_boosting | 0.0 | 0.001 |  | 0.0 | 0.005 | 0.69 |
-| xgboost | 0.0 | 0.0 |  | 0.0 | 0.003 | 0.908 |
-| catboost | 0.0 | 0.0 |  | 0.0 | 0.003 | 0.912 |
+| model | validation_mae | validation_rmse | validation_r2 | validation_spearman | test_mae | test_rmse | test_r2 | test_spearman |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| linear_ridge | 0.0 | 0.0 |  |  | 0.0 | 0.003 | 0.85 | 0.053 |
+| random_forest | 0.0 | 0.0 |  |  | 0.0 | 0.002 | 0.938 | 1.0 |
+| extra_trees | 0.0 | 0.0 |  |  | 0.0 | 0.002 | 0.948 | 1.0 |
+| hist_gradient_boosting | 0.0 | 0.001 |  |  | 0.0 | 0.005 | 0.69 | 0.057 |
+| xgboost | 0.0 | 0.0 |  |  | 0.0 | 0.003 | 0.908 | 1.0 |
+| catboost | 0.0 | 0.0 |  |  | 0.0 | 0.003 | 0.912 | 0.053 |
 
 ## Source-wise Performance
 
@@ -154,32 +201,102 @@ The model uses RDKit compound descriptors, simplified LC gradient encodings, col
 
 ## Source-Family Holdout Metrics
 
-| validation_scope | holdout_family | target | model | n_train | n_holdout | n_train_sources | n_train_groups | n_holdout_groups | mae | rmse | r2 | mean_bias | median_abs_error |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| source_family_holdout | MCMRT | rt_min | linear_ridge | 4979 | 10073 | 45 | 2509 | 343 | 5.335 | 6.998 | 0.517 | 3.841 | 4.364 |
-| source_family_holdout | MCMRT | rt_min | random_forest | 4979 | 10073 | 45 | 2509 | 343 | 3.625 | 4.858 | 0.767 | -1.118 | 2.797 |
-| source_family_holdout | MCMRT | rt_min | extra_trees | 4979 | 10073 | 45 | 2509 | 343 | 4.016 | 5.464 | 0.705 | -0.575 | 2.921 |
-| source_family_holdout | MCMRT | rt_min | hist_gradient_boosting | 4979 | 10073 | 45 | 2509 | 343 | 3.585 | 4.904 | 0.763 | -0.477 | 2.579 |
-| source_family_holdout | MCMRT | rt_min | xgboost | 4979 | 10073 | 45 | 2509 | 343 | 3.666 | 5.007 | 0.753 | -1.367 | 2.641 |
-| source_family_holdout | MCMRT | rt_min | catboost | 4979 | 10073 | 45 | 2509 | 343 | 4.172 | 5.852 | 0.662 | -0.277 | 2.854 |
-| source_family_holdout | MCMRT | quality_score | linear_ridge | 4979 | 10073 | 45 | 2509 | 343 | 0.096 | 0.096 |  | 0.096 | 0.096 |
-| source_family_holdout | MCMRT | quality_score | random_forest | 4979 | 10073 | 45 | 2509 | 343 | 0.063 | 0.064 |  | 0.063 | 0.067 |
-| source_family_holdout | MCMRT | quality_score | extra_trees | 4979 | 10073 | 45 | 2509 | 343 | 0.129 | 0.13 |  | 0.129 | 0.132 |
-| source_family_holdout | MCMRT | quality_score | hist_gradient_boosting | 4979 | 10073 | 45 | 2509 | 343 | 0.009 | 0.024 |  | 0.008 | 0.001 |
-| source_family_holdout | MCMRT | quality_score | xgboost | 4979 | 10073 | 45 | 2509 | 343 | 0.023 | 0.025 |  | 0.023 | 0.023 |
-| source_family_holdout | MCMRT | quality_score | catboost | 4979 | 10073 | 45 | 2509 | 343 | 0.035 | 0.037 |  | 0.035 | 0.035 |
-| source_family_holdout | RepoRT | rt_min | linear_ridge | 10080 | 4972 | 32 | 350 | 2507 | 49.538 | 64.865 | -33.162 | -40.567 | 30.983 |
-| source_family_holdout | RepoRT | rt_min | random_forest | 10080 | 4972 | 32 | 350 | 2507 | 8.679 | 13.822 | -0.551 | 4.606 | 4.434 |
-| source_family_holdout | RepoRT | rt_min | extra_trees | 10080 | 4972 | 32 | 350 | 2507 | 5.254 | 7.765 | 0.51 | -0.552 | 3.715 |
-| source_family_holdout | RepoRT | rt_min | hist_gradient_boosting | 10080 | 4972 | 32 | 350 | 2507 | 5.184 | 8.075 | 0.471 | -1.21 | 3.305 |
-| source_family_holdout | RepoRT | rt_min | xgboost | 10080 | 4972 | 32 | 350 | 2507 | 5.528 | 8.445 | 0.421 | -2.358 | 3.466 |
-| source_family_holdout | RepoRT | rt_min | catboost | 10080 | 4972 | 32 | 350 | 2507 | 5.187 | 7.76 | 0.511 | -0.024 | 3.776 |
-| source_family_holdout | RepoRT | quality_score | linear_ridge | 10080 | 4972 | 32 | 350 | 2507 | 0.343 | 0.377 | -2493.717 | 0.342 | 0.41 |
-| source_family_holdout | RepoRT | quality_score | random_forest | 10080 | 4972 | 32 | 350 | 2507 | 0.078 | 0.085 | -124.719 | 0.078 | 0.078 |
-| source_family_holdout | RepoRT | quality_score | extra_trees | 10080 | 4972 | 32 | 350 | 2507 | 0.076 | 0.082 | -117.018 | 0.076 | 0.082 |
-| source_family_holdout | RepoRT | quality_score | hist_gradient_boosting | 10080 | 4972 | 32 | 350 | 2507 | 0.004 | 0.009 | -0.583 | 0.003 | 0.001 |
-| source_family_holdout | RepoRT | quality_score | xgboost | 10080 | 4972 | 32 | 350 | 2507 | 0.005 | 0.005 | 0.485 | 0.005 | 0.004 |
-| source_family_holdout | RepoRT | quality_score | catboost | 10080 | 4972 | 32 | 350 | 2507 | 0.062 | 0.069 | -83.609 | 0.062 | 0.059 |
+| validation_scope | holdout_family | holdout_key | target | model | n_train | n_holdout | n_train_sources | n_train_groups | n_holdout_groups | mean_runtime_min | mae | rmse | r2 | spearman | normalized_mae_runtime_pct | mean_bias | median_abs_error |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| source_family_holdout | MCMRT | MCMRT | rt_min | linear_ridge | 4979 | 10073 | 45 | 2509 | 343 | 32.192 | 5.335 | 6.998 | 0.517 | 0.754 | 16.571 | 3.841 | 4.364 |
+| source_family_holdout | MCMRT | MCMRT | rt_min | random_forest | 4979 | 10073 | 45 | 2509 | 343 | 32.192 | 3.625 | 4.858 | 0.767 | 0.825 | 11.261 | -1.118 | 2.797 |
+| source_family_holdout | MCMRT | MCMRT | rt_min | extra_trees | 4979 | 10073 | 45 | 2509 | 343 | 32.192 | 4.016 | 5.464 | 0.705 | 0.818 | 12.476 | -0.575 | 2.921 |
+| source_family_holdout | MCMRT | MCMRT | rt_min | hist_gradient_boosting | 4979 | 10073 | 45 | 2509 | 343 | 32.192 | 3.585 | 4.904 | 0.763 | 0.829 | 11.136 | -0.477 | 2.579 |
+| source_family_holdout | MCMRT | MCMRT | rt_min | xgboost | 4979 | 10073 | 45 | 2509 | 343 | 32.192 | 3.666 | 5.007 | 0.753 | 0.798 | 11.389 | -1.367 | 2.641 |
+| source_family_holdout | MCMRT | MCMRT | rt_min | catboost | 4979 | 10073 | 45 | 2509 | 343 | 32.192 | 4.172 | 5.852 | 0.662 | 0.816 | 12.96 | -0.277 | 2.854 |
+| source_family_holdout | MCMRT | MCMRT | quality_score | linear_ridge | 4979 | 10073 | 45 | 2509 | 343 | 32.192 | 0.096 | 0.096 |  |  |  | 0.096 | 0.096 |
+| source_family_holdout | MCMRT | MCMRT | quality_score | random_forest | 4979 | 10073 | 45 | 2509 | 343 | 32.192 | 0.063 | 0.064 |  |  |  | 0.063 | 0.067 |
+| source_family_holdout | MCMRT | MCMRT | quality_score | extra_trees | 4979 | 10073 | 45 | 2509 | 343 | 32.192 | 0.129 | 0.13 |  |  |  | 0.129 | 0.132 |
+| source_family_holdout | MCMRT | MCMRT | quality_score | hist_gradient_boosting | 4979 | 10073 | 45 | 2509 | 343 | 32.192 | 0.009 | 0.024 |  |  |  | 0.008 | 0.001 |
+| source_family_holdout | MCMRT | MCMRT | quality_score | xgboost | 4979 | 10073 | 45 | 2509 | 343 | 32.192 | 0.023 | 0.025 |  |  |  | 0.023 | 0.023 |
+| source_family_holdout | MCMRT | MCMRT | quality_score | catboost | 4979 | 10073 | 45 | 2509 | 343 | 32.192 | 0.035 | 0.037 |  |  |  | 0.035 | 0.035 |
+| source_family_holdout | RepoRT | RepoRT | rt_min | linear_ridge | 10080 | 4972 | 32 | 350 | 2507 | 23.848 | 49.538 | 64.865 | -33.162 | -0.048 | 207.726 | -40.567 | 30.983 |
+| source_family_holdout | RepoRT | RepoRT | rt_min | random_forest | 10080 | 4972 | 32 | 350 | 2507 | 23.848 | 8.679 | 13.822 | -0.551 | 0.533 | 36.394 | 4.606 | 4.434 |
+| source_family_holdout | RepoRT | RepoRT | rt_min | extra_trees | 10080 | 4972 | 32 | 350 | 2507 | 23.848 | 5.254 | 7.765 | 0.51 | 0.565 | 22.03 | -0.552 | 3.715 |
+| source_family_holdout | RepoRT | RepoRT | rt_min | hist_gradient_boosting | 10080 | 4972 | 32 | 350 | 2507 | 23.848 | 5.184 | 8.075 | 0.471 | 0.523 | 21.737 | -1.21 | 3.305 |
+| source_family_holdout | RepoRT | RepoRT | rt_min | xgboost | 10080 | 4972 | 32 | 350 | 2507 | 23.848 | 5.528 | 8.445 | 0.421 | 0.505 | 23.18 | -2.358 | 3.466 |
+| source_family_holdout | RepoRT | RepoRT | rt_min | catboost | 10080 | 4972 | 32 | 350 | 2507 | 23.848 | 5.187 | 7.76 | 0.511 | 0.6 | 21.749 | -0.024 | 3.776 |
+| source_family_holdout | RepoRT | RepoRT | quality_score | linear_ridge | 10080 | 4972 | 32 | 350 | 2507 | 23.848 | 0.343 | 0.377 | -2493.717 | -0.047 |  | 0.342 | 0.41 |
+| source_family_holdout | RepoRT | RepoRT | quality_score | random_forest | 10080 | 4972 | 32 | 350 | 2507 | 23.848 | 0.078 | 0.085 | -124.719 | 0.055 |  | 0.078 | 0.078 |
+| source_family_holdout | RepoRT | RepoRT | quality_score | extra_trees | 10080 | 4972 | 32 | 350 | 2507 | 23.848 | 0.076 | 0.082 | -117.018 | 0.055 |  | 0.076 | 0.082 |
+| source_family_holdout | RepoRT | RepoRT | quality_score | hist_gradient_boosting | 10080 | 4972 | 32 | 350 | 2507 | 23.848 | 0.004 | 0.009 | -0.583 | 0.047 |  | 0.003 | 0.001 |
+| source_family_holdout | RepoRT | RepoRT | quality_score | xgboost | 10080 | 4972 | 32 | 350 | 2507 | 23.848 | 0.005 | 0.005 | 0.485 | 0.056 |  | 0.005 | 0.004 |
+| source_family_holdout | RepoRT | RepoRT | quality_score | catboost | 10080 | 4972 | 32 | 350 | 2507 | 23.848 | 0.062 | 0.069 | -83.609 | 0.055 |  | 0.062 | 0.059 |
+
+## Method Holdout Metrics
+
+| validation_scope | holdout_method | holdout_key | target | model | n_train | n_holdout | n_train_methods | n_train_groups | n_holdout_groups | mean_runtime_min | mae | rmse | r2 | spearman | normalized_mae_runtime_pct | mean_bias | median_abs_error |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| method_holdout | Acclaim RSLC 120 C18 \| meoh_formic_acid | Acclaim RSLC 120 C18 \| meoh_formic_acid | rt_min | linear_ridge | 13042 | 2010 | 45 | 2785 | 335 | 28.5 | 3.677 | 4.671 | 0.639 | 0.84 | 12.902 | -2.082 | 3.006 |
+| method_holdout | Acclaim RSLC 120 C18 \| meoh_formic_acid | Acclaim RSLC 120 C18 \| meoh_formic_acid | rt_min | random_forest | 13042 | 2010 | 45 | 2785 | 335 | 28.5 | 1.409 | 1.799 | 0.946 | 0.971 | 4.942 | -0.482 | 1.099 |
+| method_holdout | Acclaim RSLC 120 C18 \| meoh_formic_acid | Acclaim RSLC 120 C18 \| meoh_formic_acid | rt_min | extra_trees | 13042 | 2010 | 45 | 2785 | 335 | 28.5 | 1.5 | 1.802 | 0.946 | 0.978 | 5.262 | -0.836 | 1.408 |
+| method_holdout | Acclaim RSLC 120 C18 \| meoh_formic_acid | Acclaim RSLC 120 C18 \| meoh_formic_acid | rt_min | hist_gradient_boosting | 13042 | 2010 | 45 | 2785 | 335 | 28.5 | 1.226 | 1.567 | 0.959 | 0.976 | 4.3 | -0.32 | 0.987 |
+| method_holdout | Acclaim RSLC 120 C18 \| meoh_formic_acid | Acclaim RSLC 120 C18 \| meoh_formic_acid | rt_min | xgboost | 13042 | 2010 | 45 | 2785 | 335 | 28.5 | 1.656 | 2.564 | 0.891 | 0.969 | 5.811 | -0.869 | 0.936 |
+| method_holdout | Acclaim RSLC 120 C18 \| meoh_formic_acid | Acclaim RSLC 120 C18 \| meoh_formic_acid | rt_min | catboost | 13042 | 2010 | 45 | 2785 | 335 | 28.5 | 1.786 | 2.368 | 0.907 | 0.952 | 6.266 | -0.458 | 1.342 |
+| method_holdout | Acclaim RSLC 120 C18 \| meoh_formic_acid | Acclaim RSLC 120 C18 \| meoh_formic_acid | quality_score | linear_ridge | 13042 | 2010 | 45 | 2785 | 335 | 28.5 | 0.015 | 0.015 |  |  |  | -0.015 | 0.015 |
+| method_holdout | Acclaim RSLC 120 C18 \| meoh_formic_acid | Acclaim RSLC 120 C18 \| meoh_formic_acid | quality_score | random_forest | 13042 | 2010 | 45 | 2785 | 335 | 28.5 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 |
+| method_holdout | Acclaim RSLC 120 C18 \| meoh_formic_acid | Acclaim RSLC 120 C18 \| meoh_formic_acid | quality_score | extra_trees | 13042 | 2010 | 45 | 2785 | 335 | 28.5 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 |
+| method_holdout | Acclaim RSLC 120 C18 \| meoh_formic_acid | Acclaim RSLC 120 C18 \| meoh_formic_acid | quality_score | hist_gradient_boosting | 13042 | 2010 | 45 | 2785 | 335 | 28.5 | 0.003 | 0.008 |  |  |  | 0.003 | 0.0 |
+| method_holdout | Acclaim RSLC 120 C18 \| meoh_formic_acid | Acclaim RSLC 120 C18 \| meoh_formic_acid | quality_score | xgboost | 13042 | 2010 | 45 | 2785 | 335 | 28.5 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 |
+| method_holdout | Acclaim RSLC 120 C18 \| meoh_formic_acid | Acclaim RSLC 120 C18 \| meoh_formic_acid | quality_score | catboost | 13042 | 2010 | 45 | 2785 | 335 | 28.5 | 0.0 | 0.0 |  |  |  | -0.0 | 0.0 |
+| method_holdout | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | rt_min | linear_ridge | 13712 | 1340 | 45 | 2785 | 335 | 47.75 | 6.908 | 10.315 | 0.689 | 0.871 | 14.466 | -2.299 | 3.394 |
+| method_holdout | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | rt_min | random_forest | 13712 | 1340 | 45 | 2785 | 335 | 47.75 | 3.413 | 5.873 | 0.899 | 0.959 | 7.147 | -1.931 | 1.934 |
+| method_holdout | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | rt_min | extra_trees | 13712 | 1340 | 45 | 2785 | 335 | 47.75 | 4.151 | 7.28 | 0.845 | 0.969 | 8.694 | -2.953 | 1.461 |
+| method_holdout | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | rt_min | hist_gradient_boosting | 13712 | 1340 | 45 | 2785 | 335 | 47.75 | 2.822 | 4.881 | 0.93 | 0.979 | 5.909 | -1.14 | 1.272 |
+| method_holdout | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | rt_min | xgboost | 13712 | 1340 | 45 | 2785 | 335 | 47.75 | 3.897 | 7.112 | 0.852 | 0.981 | 8.16 | -3.038 | 1.21 |
+| method_holdout | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | rt_min | catboost | 13712 | 1340 | 45 | 2785 | 335 | 47.75 | 5.416 | 9.147 | 0.756 | 0.962 | 11.343 | -3.315 | 2.36 |
+| method_holdout | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | quality_score | linear_ridge | 13712 | 1340 | 45 | 2785 | 335 | 47.75 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 |
+| method_holdout | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | quality_score | random_forest | 13712 | 1340 | 45 | 2785 | 335 | 47.75 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 |
+| method_holdout | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | quality_score | extra_trees | 13712 | 1340 | 45 | 2785 | 335 | 47.75 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 |
+| method_holdout | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | quality_score | hist_gradient_boosting | 13712 | 1340 | 45 | 2785 | 335 | 47.75 | 0.008 | 0.016 |  |  |  | 0.008 | 0.0 |
+| method_holdout | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | quality_score | xgboost | 13712 | 1340 | 45 | 2785 | 335 | 47.75 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 |
+| method_holdout | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | ACQUITY PRIMER HSS T3 with VanGuard \| meoh_formic_acid | quality_score | catboost | 13712 | 1340 | 45 | 2785 | 335 | 47.75 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 |
+| method_holdout | Thermo Hypersil GOLD \| meoh_formic_acid | Thermo Hypersil GOLD \| meoh_formic_acid | rt_min | linear_ridge | 13712 | 1340 | 45 | 2785 | 335 | 21.5 | 2.441 | 3.119 | 0.62 | 0.881 | 11.354 | -0.637 | 2.016 |
+| method_holdout | Thermo Hypersil GOLD \| meoh_formic_acid | Thermo Hypersil GOLD \| meoh_formic_acid | rt_min | random_forest | 13712 | 1340 | 45 | 2785 | 335 | 21.5 | 1.136 | 1.648 | 0.894 | 0.919 | 5.286 | 0.901 | 0.787 |
+| method_holdout | Thermo Hypersil GOLD \| meoh_formic_acid | Thermo Hypersil GOLD \| meoh_formic_acid | rt_min | extra_trees | 13712 | 1340 | 45 | 2785 | 335 | 21.5 | 0.83 | 1.031 | 0.958 | 0.98 | 3.86 | 0.676 | 0.729 |
+| method_holdout | Thermo Hypersil GOLD \| meoh_formic_acid | Thermo Hypersil GOLD \| meoh_formic_acid | rt_min | hist_gradient_boosting | 13712 | 1340 | 45 | 2785 | 335 | 21.5 | 0.962 | 1.25 | 0.939 | 0.96 | 4.475 | 0.388 | 0.75 |
+| method_holdout | Thermo Hypersil GOLD \| meoh_formic_acid | Thermo Hypersil GOLD \| meoh_formic_acid | rt_min | xgboost | 13712 | 1340 | 45 | 2785 | 335 | 21.5 | 0.856 | 1.158 | 0.948 | 0.968 | 3.983 | 0.305 | 0.604 |
+| method_holdout | Thermo Hypersil GOLD \| meoh_formic_acid | Thermo Hypersil GOLD \| meoh_formic_acid | rt_min | catboost | 13712 | 1340 | 45 | 2785 | 335 | 21.5 | 0.995 | 1.397 | 0.924 | 0.959 | 4.627 | 0.332 | 0.719 |
+| method_holdout | Thermo Hypersil GOLD \| meoh_formic_acid | Thermo Hypersil GOLD \| meoh_formic_acid | quality_score | linear_ridge | 13712 | 1340 | 45 | 2785 | 335 | 21.5 | 0.009 | 0.012 |  |  |  | 0.009 | 0.008 |
+| method_holdout | Thermo Hypersil GOLD \| meoh_formic_acid | Thermo Hypersil GOLD \| meoh_formic_acid | quality_score | random_forest | 13712 | 1340 | 45 | 2785 | 335 | 21.5 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 |
+| method_holdout | Thermo Hypersil GOLD \| meoh_formic_acid | Thermo Hypersil GOLD \| meoh_formic_acid | quality_score | extra_trees | 13712 | 1340 | 45 | 2785 | 335 | 21.5 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 |
+| method_holdout | Thermo Hypersil GOLD \| meoh_formic_acid | Thermo Hypersil GOLD \| meoh_formic_acid | quality_score | hist_gradient_boosting | 13712 | 1340 | 45 | 2785 | 335 | 21.5 | 0.001 | 0.001 |  |  |  | 0.001 | 0.0 |
+| method_holdout | Thermo Hypersil GOLD \| meoh_formic_acid | Thermo Hypersil GOLD \| meoh_formic_acid | quality_score | xgboost | 13712 | 1340 | 45 | 2785 | 335 | 21.5 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 |
+| method_holdout | Thermo Hypersil GOLD \| meoh_formic_acid | Thermo Hypersil GOLD \| meoh_formic_acid | quality_score | catboost | 13712 | 1340 | 45 | 2785 | 335 | 21.5 | 0.0 | 0.0 |  |  |  | -0.0 | 0.0 |
+
+## Column-Family Holdout Metrics
+
+| validation_scope | holdout_column_family | holdout_key | target | model | n_train | n_holdout | n_train_column_families | n_train_groups | n_holdout_groups | mean_runtime_min | mae | rmse | r2 | spearman | normalized_mae_runtime_pct | mean_bias | median_abs_error |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| column_family_holdout | C18 | C18 | rt_min | linear_ridge | 1864 | 13188 | 3 | 480 | 2735 | 30.685 | 5.376 | 7.624 | 0.525 | 0.69 | 17.521 | -0.271 | 3.62 |
+| column_family_holdout | C18 | C18 | rt_min | random_forest | 1864 | 13188 | 3 | 480 | 2735 | 30.685 | 4.693 | 8.612 | 0.394 | 0.793 | 15.295 | -2.96 | 2.422 |
+| column_family_holdout | C18 | C18 | rt_min | extra_trees | 1864 | 13188 | 3 | 480 | 2735 | 30.685 | 4.664 | 8.817 | 0.364 | 0.815 | 15.201 | -3.547 | 2.24 |
+| column_family_holdout | C18 | C18 | rt_min | hist_gradient_boosting | 1864 | 13188 | 3 | 480 | 2735 | 30.685 | 4.591 | 8.696 | 0.382 | 0.801 | 14.963 | -3.253 | 2.1 |
+| column_family_holdout | C18 | C18 | rt_min | xgboost | 1864 | 13188 | 3 | 480 | 2735 | 30.685 | 4.946 | 8.982 | 0.34 | 0.805 | 16.119 | -4.161 | 2.462 |
+| column_family_holdout | C18 | C18 | rt_min | catboost | 1864 | 13188 | 3 | 480 | 2735 | 30.685 | 4.822 | 8.952 | 0.345 | 0.814 | 15.714 | -3.458 | 2.4 |
+| column_family_holdout | C18 | C18 | quality_score | linear_ridge | 1864 | 13188 | 3 | 480 | 2735 | 30.685 | 0.116 | 0.177 |  |  |  | 0.116 | 0.088 |
+| column_family_holdout | C18 | C18 | quality_score | random_forest | 1864 | 13188 | 3 | 480 | 2735 | 30.685 | 0.001 | 0.001 |  |  |  | 0.001 | 0.001 |
+| column_family_holdout | C18 | C18 | quality_score | extra_trees | 1864 | 13188 | 3 | 480 | 2735 | 30.685 | 0.0 | 0.002 |  |  |  | 0.0 | 0.0 |
+| column_family_holdout | C18 | C18 | quality_score | hist_gradient_boosting | 1864 | 13188 | 3 | 480 | 2735 | 30.685 | 0.093 | 0.099 |  |  |  | 0.093 | 0.099 |
+| column_family_holdout | C18 | C18 | quality_score | xgboost | 1864 | 13188 | 3 | 480 | 2735 | 30.685 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 |
+| column_family_holdout | C18 | C18 | quality_score | catboost | 1864 | 13188 | 3 | 480 | 2735 | 30.685 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 |
+| column_family_holdout | unknown | unknown | rt_min | linear_ridge | 13200 | 1852 | 3 | 2737 | 472 | 20.594 | 2.753 | 3.68 | 0.432 | 0.786 | 13.365 | -0.546 | 2.171 |
+| column_family_holdout | unknown | unknown | rt_min | random_forest | 13200 | 1852 | 3 | 2737 | 472 | 20.594 | 1.354 | 2.044 | 0.825 | 0.911 | 6.576 | 0.927 | 1.084 |
+| column_family_holdout | unknown | unknown | rt_min | extra_trees | 13200 | 1852 | 3 | 2737 | 472 | 20.594 | 1.162 | 1.697 | 0.879 | 0.947 | 5.641 | 0.808 | 0.992 |
+| column_family_holdout | unknown | unknown | rt_min | hist_gradient_boosting | 13200 | 1852 | 3 | 2737 | 472 | 20.594 | 1.354 | 2.005 | 0.831 | 0.924 | 6.577 | 0.942 | 0.967 |
+| column_family_holdout | unknown | unknown | rt_min | xgboost | 13200 | 1852 | 3 | 2737 | 472 | 20.594 | 1.253 | 1.934 | 0.843 | 0.925 | 6.086 | 0.797 | 0.918 |
+| column_family_holdout | unknown | unknown | rt_min | catboost | 13200 | 1852 | 3 | 2737 | 472 | 20.594 | 1.449 | 2.103 | 0.815 | 0.916 | 7.034 | 0.97 | 1.066 |
+| column_family_holdout | unknown | unknown | quality_score | linear_ridge | 13200 | 1852 | 3 | 2737 | 472 | 20.594 | 0.015 | 0.017 |  |  |  | 0.014 | 0.01 |
+| column_family_holdout | unknown | unknown | quality_score | random_forest | 13200 | 1852 | 3 | 2737 | 472 | 20.594 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 |
+| column_family_holdout | unknown | unknown | quality_score | extra_trees | 13200 | 1852 | 3 | 2737 | 472 | 20.594 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 |
+| column_family_holdout | unknown | unknown | quality_score | hist_gradient_boosting | 13200 | 1852 | 3 | 2737 | 472 | 20.594 | 0.005 | 0.016 |  |  |  | 0.004 | 0.0 |
+| column_family_holdout | unknown | unknown | quality_score | xgboost | 13200 | 1852 | 3 | 2737 | 472 | 20.594 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 |
+| column_family_holdout | unknown | unknown | quality_score | catboost | 13200 | 1852 | 3 | 2737 | 472 | 20.594 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 |
 
 ## Retention-Order Diagnostic
 

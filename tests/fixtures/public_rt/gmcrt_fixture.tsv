@@ -1,0 +1,4 @@
+compound_name	smiles	retention_time_min	column_name	mobile_phase_a	mobile_phase_b	gradient_profile	method_id
+Caffeine	Cn1cnc2c1c(=O)n(C)c(=O)n2C	1.31	ACQUITY UPLC BEH C18	Water	Acetonitrile	linear 2-98% B	GMCRT-M01
+Caffeine	Cn1cnc2c1c(=O)n(C)c(=O)n2C	1.31	ACQUITY UPLC BEH C18	Water	Acetonitrile	linear 2-98% B	GMCRT-M01-DUP
+Lidocaine	CCN(CC)CC(=O)Nc1c(C)cccc1C	4.82	ACQUITY UPLC BEH C18	Water	Acetonitrile	linear 2-98% B	GMCRT-M01

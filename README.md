@@ -6,9 +6,11 @@ Practical local MVP for bioanalytical small-molecule LC-MS/MS method development
 
 - PostgreSQL schema for compounds, structures, datasets, methods, gradients, runs, peak metrics, MS settings, predictions, recommendations, and audit logs.
 - RDKit descriptor pipeline: MW, logP, TPSA, HBD/HBA, rotatable bonds, aromatic rings, charge, heavy atoms, and Morgan fingerprints.
-- Offline-first adapters for internal lab templates, METLIN SMRT, RepoRT, ChEMBL, MassBank, and MoNA.
+- Offline-first adapters for internal lab templates, METLIN SMRT, RepoRT, PredRet/GMCRT-style tabular fixtures, ChEMBL, MassBank, and MoNA.
 - PubChem enrichment client for name or CID lookup.
+- Offline compound identity resolver with confidence labels and unresolved/ambiguous mapping reports.
 - Multi-model CPU training for RT and provisional quality using Ridge, RandomForest, ExtraTrees, HistGradientBoosting, XGBoost, and CatBoost.
+- Optional dependency-gated graph and SMILES-transformer embedding branches with offline smoke tests.
 - Heuristic fallback predictions so the GUI remains useful before model artifacts exist.
 - Recommendation engine that generates candidate methods and ranks them by RT fit, quality, runtime, confidence, and applicability-domain support.
 - Streamlit pages: Dashboard, Compound lookup, Forward prediction, Method recommendation, Dataset browser, Model evaluation, Admin/import.
@@ -59,6 +61,10 @@ This trains Ridge, RandomForest, ExtraTrees, HistGradientBoosting, XGBoost, and 
 - `reports/source_metrics.csv`
 - `reports/cv_metrics.csv`
 - `reports/source_holdout_metrics.csv`
+- `reports/method_holdout_metrics.csv`
+- `reports/column_family_holdout_metrics.csv`
+- `reports/evaluation_matrix.csv`
+- `reports/model_benchmark_matrix.csv`
 - `reports/retention_order_metrics.csv`
 - `reports/sota_model_experiments.md`
 - reproducible Plotly HTML plots under `data/processed/plots/`
@@ -131,6 +137,7 @@ The MVP avoids blocking on private resources or scraping. Public and optional so
 - `app/adapters/massbank.py`
 - `app/adapters/mona.py`
 - `app/adapters/internal_lab_template.py`
+- `app/adapters/public_rt.py`
 
 Internal lab files should map to the normalized record columns used in `data/mock_training_records.csv`. Raw exports can be staged in `data/raw/`; cleaned model-ready tables can go in `data/processed/`.
 
@@ -162,6 +169,11 @@ python scripts/fetch_public_datasets.py `
   --license-note "Apache-2.0; reviewed local export" `
   --output-name metlin_smrt
 ```
+
+Fixture-based public RT adapter coverage is available for PredRet-style, GMCRT-style, and multi-condition RT supplementary tables. These paths are designed for reviewed local CSV/TSV/XLSX exports rather than unreviewed scraping. See:
+
+- `docs/data_sources/public_rt_fixture_adapters.md`
+- `docs/data_sources/metlin_smrt_manual_ingestion.md`
 
 Extract conservative LC-MS/MS entities from reviewed text snippets:
 
@@ -206,6 +218,8 @@ The generated report at `reports/model_training_summary.md` contains:
 - MAE, RMSE, and R2 metrics
 - grouped cross-validation metrics
 - source-family holdout metrics for new-source transfer checks
+- method and column-family holdout diagnostics
+- unified evaluation and benchmark matrices
 - retention-order diagnostics for within-method ranking behavior
 - source-wise performance
 - split-conformal q90 RT uncertainty proxy
@@ -214,6 +228,13 @@ The generated report at `reports/model_training_summary.md` contains:
 - limitations and next steps for internal fine-tuning
 
 For a presentation-style summary, use `reports/chromaintel_dashboard_report.pdf`.
+
+Optional neural branches are dependency-gated and do not run downloads during tests:
+
+- `docs/model_architectures/graph_models.md`
+- `docs/model_architectures/transformer_embeddings.md`
+- `reports/benchmarks/graph_models.csv`
+- `reports/benchmarks/transformer_embeddings.csv`
 
 ## Testing
 
@@ -227,6 +248,7 @@ Current tests cover:
 - Dataset schema normalization and merge logic.
 - Internal lab import validation.
 - Training model zoo, uncertainty metadata, source metrics, and feature significance.
+- Canonical registry helpers, public RT fixture adapters, offline compound identity resolution, optional graph stubs, and cached transformer embeddings.
 - Literature parser extraction into canonical fields.
 - Recommendation candidate ranking and method runtime calculation.
 

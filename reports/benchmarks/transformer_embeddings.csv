@@ -1,0 +1,2 @@
+date,benchmark,encoder_family,source,rows,embedding_dim,network_required,status,notes
+2026-04-25,offline_fixture_join,ChemBERTa,tests/fixtures/embeddings/mock_chemberta_embeddings.csv,2,3,false,implemented,Mock cache validates loader and feature join without transformers or downloads.
