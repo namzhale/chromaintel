@@ -58,12 +58,13 @@ def _optional_import_assembly():
 def _optional_import_internal_validation():
     try:
         from app.services.internal_validation import (
+            preview_internal_lab_import,
             validate_internal_lab_frame,
             write_internal_templates,
         )
     except Exception as exc:
-        return None, None, exc
-    return validate_internal_lab_frame, write_internal_templates, None
+        return None, None, None, exc
+    return preview_internal_lab_import, validate_internal_lab_frame, write_internal_templates, None
 
 
 def _read_csv(path: Path) -> pd.DataFrame | None:
@@ -586,7 +587,12 @@ def model_evaluation() -> None:
 
 def admin_import() -> None:
     st.title("Admin / Import")
-    validate_internal_lab_frame, write_internal_templates, import_error = _optional_import_internal_validation()
+    (
+        preview_internal_lab_import,
+        validate_internal_lab_frame,
+        write_internal_templates,
+        import_error,
+    ) = _optional_import_internal_validation()
     uploaded = st.file_uploader("Import normalized CSV", type=["csv"])
     if uploaded:
         try:
@@ -598,6 +604,21 @@ def admin_import() -> None:
         if import_error:
             st.error(f"Internal validation is unavailable: {import_error}")
         else:
+            preview = preview_internal_lab_import(frame)
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Rows", preview.row_count)
+            c2.metric("Valid rows", preview.valid_row_count)
+            c3.metric("Invalid rows", preview.invalid_row_count)
+            c4.metric("Duplicate run IDs", preview.duplicate_run_id_count)
+            missingness_rows = [
+                {"column": column, "missing_values": count}
+                for column, count in preview.missingness_by_column.items()
+                if count
+            ]
+            if missingness_rows:
+                missingness = pd.DataFrame(missingness_rows).sort_values("missing_values", ascending=False)
+                st.subheader("Missingness summary")
+                st.dataframe(missingness, use_container_width=True, hide_index=True)
             result = validate_internal_lab_frame(frame)
             if result.is_valid:
                 st.success("Import validation passed.")

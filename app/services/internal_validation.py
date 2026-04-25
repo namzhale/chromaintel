@@ -27,6 +27,32 @@ class ValidationResult:
     issues: list[ValidationIssue]
 
 
+@dataclass(frozen=True)
+class ImportPreview:
+    """Compact preview summary for internal lab onboarding before import."""
+
+    row_count: int
+    valid_row_count: int
+    invalid_row_count: int
+    duplicate_run_id_count: int
+    missingness_by_column: dict[str, int]
+    issues: list[ValidationIssue]
+
+
+ION_MODE_VALUES = {"positive", "negative", "both", "unknown"}
+MATRIX_VALUES = {
+    "plasma",
+    "serum",
+    "urine",
+    "whole blood",
+    "blood",
+    "saliva",
+    "csf",
+    "tissue",
+    "unknown",
+}
+
+
 INTERNAL_TEMPLATE_COLUMNS = [
     "run_id",
     "compound_name",
@@ -125,6 +151,10 @@ def validate_internal_lab_frame(frame: pd.DataFrame) -> ValidationResult:
         _validate_numeric_range(issues, row, int(idx), "temperature_c", 0, 120)
         _validate_numeric_range(issues, row, int(idx), "injection_ul", 0, 100)
         _validate_numeric_range(issues, row, int(idx), "rt_min", 0, 120)
+        _validate_vocabulary(issues, row, int(idx), "ion_mode", ION_MODE_VALUES)
+        _validate_vocabulary(issues, row, int(idx), "matrix", MATRIX_VALUES)
+        _validate_gradient_consistency(issues, row, int(idx))
+        _validate_transition_requirements(issues, row, int(idx))
         smiles = row.get("smiles") if "smiles" in frame.columns else None
         if pd.isna(smiles) or not str(smiles).strip():
             issues.append(ValidationIssue(int(idx), "smiles", "error", "missing SMILES"))
@@ -137,6 +167,28 @@ def validate_internal_lab_frame(frame: pd.DataFrame) -> ValidationResult:
     return ValidationResult(
         is_valid=not any(issue.severity == "error" for issue in issues),
         issues=issues,
+    )
+
+
+def preview_internal_lab_import(frame: pd.DataFrame) -> ImportPreview:
+    """Summarize validity, missingness, and duplicate rows before database import."""
+
+    result = validate_internal_lab_frame(frame)
+    invalid_rows = {issue.row for issue in result.issues if issue.severity == "error" and issue.row is not None}
+    duplicate_count = 0
+    if "run_id" in frame.columns:
+        duplicate_count = int(frame["run_id"].astype("string").duplicated(keep=False).sum())
+    missingness = {
+        column: int(frame[column].isna().sum())
+        for column in frame.columns
+    }
+    return ImportPreview(
+        row_count=len(frame),
+        valid_row_count=max(len(frame) - len(invalid_rows), 0),
+        invalid_row_count=len(invalid_rows),
+        duplicate_run_id_count=duplicate_count,
+        missingness_by_column=missingness,
+        issues=result.issues,
     )
 
 
@@ -212,3 +264,50 @@ def _validate_numeric_range(
             ValidationIssue(idx, column, "error", f"{column} outside valid range {low}-{high}")
         )
 
+
+def _validate_vocabulary(
+    issues: list[ValidationIssue],
+    row: pd.Series,
+    idx: int,
+    column: str,
+    allowed: set[str],
+) -> None:
+    if column not in row.index or pd.isna(row.get(column)):
+        return
+    value = str(row.get(column)).strip().lower()
+    if value and value not in allowed:
+        issues.append(
+            ValidationIssue(idx, column, "error", f"{column} must be one of {sorted(allowed)}")
+        )
+
+
+def _validate_gradient_consistency(issues: list[ValidationIssue], row: pd.Series, idx: int) -> None:
+    initial = pd.to_numeric(row.get("initial_organic_pct"), errors="coerce")
+    final = pd.to_numeric(row.get("final_organic_pct"), errors="coerce")
+    duration = pd.to_numeric(row.get("gradient_duration_min"), errors="coerce")
+    runtime = pd.to_numeric(row.get("total_runtime_min"), errors="coerce")
+
+    for column, value in [("initial_organic_pct", initial), ("final_organic_pct", final)]:
+        if pd.notna(value) and not 0 <= float(value) <= 100:
+            issues.append(ValidationIssue(idx, column, "error", f"{column} must be within 0-100"))
+    if pd.notna(initial) and pd.notna(final) and float(final) < float(initial):
+        issues.append(
+            ValidationIssue(idx, "final_organic_pct", "warning", "final organic percent is below initial percent")
+        )
+    if pd.notna(duration) and float(duration) <= 0:
+        issues.append(ValidationIssue(idx, "gradient_duration_min", "error", "gradient duration must be positive"))
+    if pd.notna(duration) and pd.notna(runtime) and float(duration) > float(runtime):
+        issues.append(
+            ValidationIssue(idx, "gradient_duration_min", "error", "gradient duration exceeds total runtime")
+        )
+
+
+def _validate_transition_requirements(issues: list[ValidationIssue], row: pd.Series, idx: int) -> None:
+    ion_mode = str(row.get("ion_mode", "unknown")).strip().lower()
+    if ion_mode not in {"positive", "negative", "both"}:
+        return
+    for column in ["precursor_mz", "product_mz", "collision_energy_v"]:
+        if column not in row.index or pd.isna(row.get(column)) or str(row.get(column)).strip() == "":
+            issues.append(
+                ValidationIssue(idx, column, "error", f"{column} is required when ion_mode is known")
+            )

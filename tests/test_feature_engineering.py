@@ -1,6 +1,6 @@
 import pandas as pd
 
-from app.services.feature_engineering import build_model_matrix
+from app.services.feature_engineering import build_model_matrix, feature_groups
 
 
 def test_build_model_matrix_creates_feature_groups_and_proxy_quality():
@@ -61,3 +61,25 @@ def test_build_model_matrix_preserves_explicit_quality_score():
     matrix = build_model_matrix(master)
 
     assert matrix.loc[0, "quality_score"] == 0.91
+
+
+def test_build_model_matrix_can_include_morgan_fingerprints():
+    master = pd.DataFrame(
+        [
+            {
+                "compound_name": "Ethanol",
+                "smiles": "CCO",
+                "column_chemistry": "C18",
+                "mobile_phase_a": "Water",
+                "mobile_phase_b": "Acetonitrile",
+                "rt_min": 0.8,
+            }
+        ]
+    )
+
+    matrix = build_model_matrix(master, include_fingerprints=True)
+    groups = feature_groups(matrix)
+
+    assert "morgan_0" in matrix.columns
+    assert len(groups.fingerprints) == 2048
+    assert groups.combined.index("morgan_0") > groups.combined.index("fraction_csp3")

@@ -51,6 +51,7 @@ class RecommendationEngine:
             "rt_fit": settings.recommendation_rt_weight,
             "runtime": settings.recommendation_runtime_weight,
             "confidence": settings.recommendation_confidence_weight,
+            "ad_penalty": 0.2,
         }
 
     def recommend(
@@ -68,12 +69,21 @@ class RecommendationEngine:
             pred = self.predictor.predict(compound, method, ms_settings)
             rt_fit = 1.0 - min(abs(pred["predicted_rt_min"] - target_rt_min) / max(target_rt_min, 0.1), 1.0)
             runtime_penalty = min(method.runtime_min / max(self.search_space.max_runtime_min, 0.1), 1.0)
+            ad_penalty = 1.0 if pred.get("out_of_domain") else 0.0
             score = (
                 + self.weights["rt_fit"] * rt_fit
                 + self.weights["quality"] * pred["quality_score"]
                 - self.weights["runtime"] * runtime_penalty
                 + self.weights["confidence"] * pred["confidence"]
+                - self.weights.get("ad_penalty", 0.0) * ad_penalty
             )
+            components = {
+                "rt_fit": round(float(rt_fit), 4),
+                "quality": round(float(pred["quality_score"]), 4),
+                "runtime_penalty": round(float(runtime_penalty), 4),
+                "confidence": round(float(pred["confidence"]), 4),
+                "ad_penalty": round(float(ad_penalty), 4),
+            }
             candidates.append(
                 RecommendationCandidate(
                     rank=0,
@@ -83,11 +93,15 @@ class RecommendationEngine:
                     estimated_runtime_min=method.runtime_min,
                     confidence=pred["confidence"],
                     score=round(float(score), 4),
+                    score_components=components,
+                    out_of_domain=bool(pred.get("out_of_domain", False)),
+                    out_of_domain_reasons=list(pred.get("out_of_domain_reasons", [])),
                     explanation=(
                         f"Predicted RT is {pred['predicted_rt_min']:.2f} min versus target RT "
                         f"{target_rt_min:.2f} min; quality is {pred['quality_score']:.2f}. "
                         f"The method balances runtime ({method.runtime_min:.1f} min), pH {method.ph}, "
                         f"and {method.column} selectivity."
+                        + (" Applicability-domain support is low for this candidate." if ad_penalty else "")
                     ),
                 )
             )

@@ -43,6 +43,7 @@ LC_CATEGORICAL_FEATURES = [
 ]
 
 MS_FEATURES = ["ion_mode", "precursor_mz", "product_mz"]
+MORGAN_FINGERPRINT_BITS = 2048
 
 TARGET_COLUMNS = [
     "rt_min",
@@ -61,6 +62,7 @@ class FeatureGroups:
     """Named feature groups used by the training and explanation layers."""
 
     compound: list[str]
+    fingerprints: list[str]
     lc_numeric: list[str]
     lc_categorical: list[str]
     ms: list[str]
@@ -86,8 +88,12 @@ def build_model_matrix(master: pd.DataFrame, include_fingerprints: bool = False)
                     )
             except InvalidStructureError:
                 descriptor_values = {key: np.nan for key in COMPOUND_FEATURES}
+                if include_fingerprints:
+                    descriptor_values.update(_empty_morgan_fingerprint())
         else:
             descriptor_values = {key: np.nan for key in COMPOUND_FEATURES}
+            if include_fingerprints:
+                descriptor_values.update(_empty_morgan_fingerprint())
 
         feature_row = {
             **_identity_fields(row),
@@ -142,11 +148,21 @@ def feature_groups(frame: pd.DataFrame) -> FeatureGroups:
     """Return feature group names that are present in a model matrix."""
 
     compound = [col for col in COMPOUND_FEATURES if col in frame.columns]
+    fingerprints = morgan_feature_columns(frame)
     lc_numeric = [col for col in LC_NUMERIC_FEATURES if col in frame.columns]
     lc_categorical = [col for col in [*LC_CATEGORICAL_FEATURES, "mobile_phase_system"] if col in frame.columns]
     ms = [col for col in MS_FEATURES if col in frame.columns]
-    combined = compound + lc_numeric + lc_categorical + ms
-    return FeatureGroups(compound, lc_numeric, lc_categorical, ms, combined)
+    combined = compound + fingerprints + lc_numeric + lc_categorical + ms
+    return FeatureGroups(compound, fingerprints, lc_numeric, lc_categorical, ms, combined)
+
+
+def morgan_feature_columns(frame: pd.DataFrame) -> list[str]:
+    """Return Morgan fingerprint feature columns in stable bit-index order."""
+
+    return sorted(
+        [col for col in frame.columns if str(col).startswith("morgan_")],
+        key=lambda col: int(str(col).split("_", 1)[1]),
+    )
 
 
 def mobile_phase_system(a_phase: object, b_phase: object) -> str:
@@ -194,3 +210,7 @@ def _num(value: object, default: float | None = np.nan) -> float:
     if pd.isna(parsed):
         return float(default) if default is not None and pd.notna(default) else np.nan
     return float(parsed)
+
+
+def _empty_morgan_fingerprint() -> dict[str, int]:
+    return {f"morgan_{idx}": 0 for idx in range(MORGAN_FINGERPRINT_BITS)}

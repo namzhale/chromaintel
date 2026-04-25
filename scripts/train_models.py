@@ -14,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from scripts.assemble_dataset import DEFAULT_OUTPUT_DIR, assemble_dataset
+from app.services.feature_engineering import build_model_matrix
 
 
 DEFAULT_MATRIX = DEFAULT_OUTPUT_DIR / "model_matrix.csv"
@@ -82,6 +83,12 @@ def _parser() -> argparse.ArgumentParser:
         default=DEFAULT_PLOTS_DIR,
         help="Directory for generated training plots.",
     )
+    parser.add_argument(
+        "--feature-set",
+        choices=["core", "morgan"],
+        default="core",
+        help="Training feature set: core descriptors/LC/MS fields or core plus Morgan fingerprints.",
+    )
     return parser
 
 
@@ -92,6 +99,12 @@ def main(argv: list[str] | None = None) -> int:
         f"Loaded model matrix: {matrix_path.resolve()} "
         f"({len(matrix)} rows x {len(matrix.columns)} columns)"
     )
+    if args.feature_set == "morgan":
+        matrix = build_model_matrix(matrix, include_fingerprints=True)
+        print(
+            "Expanded matrix with Morgan fingerprints: "
+            f"{len(matrix)} rows x {len(matrix.columns)} columns"
+        )
 
     try:
         train_forward_models = _load_trainer()
@@ -100,6 +113,7 @@ def main(argv: list[str] | None = None) -> int:
             artifact_path=args.artifact,
             report_dir=args.report_dir,
             plots_dir=args.plots_dir,
+            feature_set=args.feature_set,
         )
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
@@ -117,6 +131,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Rows: train={payload.get('n_train')}, validation={payload.get('n_validation')}, test={payload.get('n_test')}")
     print(f"Best RT model: {payload.get('best_rt_model')}")
     print(f"Best quality model: {payload.get('best_quality_model')}")
+    print(f"Feature set: {args.feature_set}")
     print(f"Artifact: {Path(payload.get('artifact_path', args.artifact)).resolve()}")
     print(f"Report: {Path(payload.get('report_path', args.report_dir)).resolve()}")
     print(f"Feature count: {len(payload.get('feature_columns', []))}")

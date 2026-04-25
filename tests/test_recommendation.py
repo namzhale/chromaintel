@@ -23,6 +23,20 @@ class StubForwardModel:
         }
 
 
+class DomainAwareStubForwardModel:
+    def predict(self, compound, method, ms_settings=None):
+        out_of_domain = "HILIC" in method.column
+        return {
+            "predicted_rt_min": 4.0,
+            "quality_score": 0.8,
+            "confidence": 0.7,
+            "out_of_domain": out_of_domain,
+            "out_of_domain_reasons": ["unseen category"] if out_of_domain else [],
+            "risks": {},
+            "feature_summary": {},
+        }
+
+
 def test_recommendations_rank_rt_fit_quality_and_runtime():
     search_space = CandidateSearchSpace(
         columns=["BEH C18 50x2.1 mm 1.7um", "HILIC 100x2.1 mm 2.6um"],
@@ -47,6 +61,34 @@ def test_recommendations_rank_rt_fit_quality_and_runtime():
     assert recs[0].method.column == "BEH C18 50x2.1 mm 1.7um"
     assert recs[0].score >= recs[1].score >= recs[2].score
     assert "target RT" in recs[0].explanation
+    assert {"rt_fit", "quality", "runtime_penalty", "confidence", "ad_penalty"}.issubset(
+        recs[0].score_components
+    )
+
+
+def test_recommendations_penalize_out_of_domain_candidates():
+    search_space = CandidateSearchSpace(
+        columns=["BEH C18 50x2.1 mm 1.7um", "HILIC 100x2.1 mm 2.6um"],
+        ph_values=[3.2],
+        flow_rates_ml_min=[0.35],
+        temperatures_c=[40.0],
+        solvents_a=["Water + 0.1% formic acid"],
+        solvents_b=["Acetonitrile + 0.1% formic acid"],
+        gradient_end_times=[5.0],
+    )
+    engine = RecommendationEngine(DomainAwareStubForwardModel(), search_space=search_space)
+
+    recs = engine.recommend(
+        compound={"smiles": "CCO", "name": "ethanol"},
+        target_rt_min=4.0,
+        top_n=2,
+        ms_settings=MSSettingsInput(ionization_mode="positive"),
+    )
+
+    assert recs[0].method.column == "BEH C18 50x2.1 mm 1.7um"
+    assert recs[0].score_components["ad_penalty"] == 0.0
+    assert recs[1].out_of_domain is True
+    assert recs[1].score_components["ad_penalty"] == 1.0
 
 
 def test_method_input_estimates_runtime_from_gradient_steps():

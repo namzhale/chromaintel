@@ -22,4 +22,7 @@ class RecommendationCandidate(BaseModel):
     estimated_runtime_min: float
     confidence: float
     score: float
+    score_components: dict[str, float] = Field(default_factory=dict)
+    out_of_domain: bool = False
+    out_of_domain_reasons: list[str] = Field(default_factory=list)
     explanation: str

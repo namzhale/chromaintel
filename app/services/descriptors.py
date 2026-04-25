@@ -46,13 +46,16 @@ class DescriptorCalculator:
             "morgan_fp": fp_list,
         }
 
-    def model_features(self, smiles: str) -> dict[str, float]:
+    def model_features(self, smiles: str, include_fingerprint: bool = True) -> dict[str, float]:
         descriptors = self.from_smiles(smiles)
-        return {
+        features = {
             key: float(value)
             for key, value in descriptors.items()
             if key not in {"canonical_smiles", "morgan_fp"}
         }
+        if include_fingerprint:
+            features.update({f"morgan_{idx}": float(bit) for idx, bit in enumerate(descriptors["morgan_fp"])})
+        return features
 
     @staticmethod
     def _mol_from_smiles(smiles: str):

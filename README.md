@@ -10,7 +10,7 @@ Practical local MVP for bioanalytical small-molecule LC-MS/MS method development
 - PubChem enrichment client for name or CID lookup.
 - Multi-model CPU training for RT and provisional quality using Ridge, RandomForest, ExtraTrees, HistGradientBoosting, XGBoost, and CatBoost.
 - Heuristic fallback predictions so the GUI remains useful before model artifacts exist.
-- Recommendation engine that generates candidate methods and ranks them by RT fit, quality, and runtime.
+- Recommendation engine that generates candidate methods and ranks them by RT fit, quality, runtime, confidence, and applicability-domain support.
 - Streamlit pages: Dashboard, Compound lookup, Forward prediction, Method recommendation, Dataset browser, Model evaluation, Admin/import.
 - Literature and market review PDF: `docs/literature_market_review_ai_lcms_bioanalysis.pdf`.
 
@@ -59,8 +59,16 @@ This trains Ridge, RandomForest, ExtraTrees, HistGradientBoosting, XGBoost, and 
 - `reports/source_metrics.csv`
 - `reports/cv_metrics.csv`
 - `reports/source_holdout_metrics.csv`
+- `reports/retention_order_metrics.csv`
 - `reports/sota_model_experiments.md`
 - reproducible Plotly HTML plots under `data/processed/plots/`
+
+To compare the descriptor-only core feature set with Morgan fingerprint features:
+
+```powershell
+python scripts/train_models.py --feature-set core
+python scripts/train_models.py --feature-set morgan --artifact data/processed/models/trained_forward_bundle_morgan.joblib
+```
 
 Generate a compact PDF dashboard for presentation or review:
 
@@ -142,6 +150,17 @@ python scripts/fetch_public_datasets.py `
   --license-note CC-BY-SA-4.0
 ```
 
+High-value next data expansion is a reviewed local METLIN SMRT Figshare export. Use the generic local importer after downloading and reviewing license/provenance:
+
+```powershell
+python scripts/fetch_public_datasets.py `
+  --local-export data\raw\public_sources\metlin_smrt_reviewed.csv `
+  --source-name METLIN_SMRT `
+  --source-url https://doi.org/10.6084/m9.figshare.8038913 `
+  --license-note "Apache-2.0; reviewed local export" `
+  --output-name metlin_smrt
+```
+
 Extract conservative LC-MS/MS entities from reviewed text snippets:
 
 ```powershell
@@ -172,7 +191,7 @@ Template files:
 - `data/templates/internal_lab_historical_runs_template.csv`
 - `data/templates/internal_lab_data_dictionary.md`
 
-The Admin/import GUI page previews uploaded CSV files and validates required fields, numeric ranges, invalid SMILES, and duplicate run IDs.
+The Admin/import GUI page previews uploaded CSV files and validates required fields, numeric ranges, invalid SMILES, duplicate run IDs, gradient consistency, ion mode and matrix vocabularies, and required MRM transition fields when ion mode is known.
 
 ## Model Evaluation
 
@@ -185,6 +204,7 @@ The generated report at `reports/model_training_summary.md` contains:
 - MAE, RMSE, and R2 metrics
 - grouped cross-validation metrics
 - source-family holdout metrics for new-source transfer checks
+- retention-order diagnostics for within-method ranking behavior
 - source-wise performance
 - split-conformal q90 RT uncertainty proxy
 - applicability-domain flags for held-out predictions
@@ -207,6 +227,8 @@ Current tests cover:
 - Training model zoo, uncertainty metadata, source metrics, and feature significance.
 - Literature parser extraction into canonical fields.
 - Recommendation candidate ranking and method runtime calculation.
+
+The forward-looking SOTA/data plan is tracked in `docs/sota_data_model_roadmap.md`.
 
 ## Notes for real lab integration
 

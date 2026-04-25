@@ -6,9 +6,9 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 
 - Repo is public at `https://github.com/namzhale/chromaintel`.
 - Latest major implemented layer: SOTA-oriented CPU training and data extraction pipeline.
-- Current verified tests: `15 passed` with project `.venv`.
+- Current verified tests: `32 passed` with project `.venv`.
 - Current trained demo artifact exists at `data/processed/models/trained_forward_bundle.joblib`.
-- Current model report is demo-only: 12 rows, 8 compounds, weak RT generalization, quality target still provisional.
+- Current processed model matrix is 15,052 rows and 3,945 compounds after RepoRT plus MCMRT expansion; quality target still provisional.
 
 ## Milestone A: Data Expansion And Canonical Ingestion
 
@@ -22,25 +22,25 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 
 - [x] Add `docs/internal_lab_onboarding.md` with realistic BE workflow instructions.
 - [ ] Add template examples for accepted, failed, low intensity, poor resolution, and carryover cases.
-- [ ] Add validation for gradient consistency, ion mode vocabulary, matrix vocabulary, and required MS transition fields when ion mode is known.
-- [ ] Add an import preview report that summarizes missingness, invalid rows, and duplicate runs.
+- [x] Add validation for gradient consistency, ion mode vocabulary, matrix vocabulary, and required MS transition fields when ion mode is known.
+- [x] Add an import preview report that summarizes missingness, invalid rows, and duplicate runs.
 
 ## Milestone C: Modeling And SOTA Path
 
 - [x] Add grouped validation when enough rows exist; group by `inchikey`, `source_dataset`, and method family.
 - [x] Add optional CatBoost/XGBoost support with graceful skip when packages are absent; LightGBM remains a future optional backend.
-- [ ] Add Morgan fingerprint feature option in training CLI and compare with descriptor-only training.
+- [ ] Add Morgan fingerprint feature option in training CLI and compare with descriptor-only training. Feature option is implemented; full comparison run remains.
 - [x] Add applicability-domain metadata to the persisted bundle and use it in `ForwardPredictor._out_of_domain`.
 - [ ] Add conformal interval reporting by source/matrix/column family once calibration rows exist.
-- [ ] Add a research note for future GNN/Transformer transfer learning architecture and required data volume.
+- [x] Add a research note for future GNN/Transformer transfer learning architecture and required data volume.
 
 ## Milestone D: Recommendation Engine Upgrade
 
-- [ ] Add score decomposition to recommendation outputs: RT fit, quality, runtime penalty, confidence, AD penalty.
+- [x] Add score decomposition to recommendation outputs: RT fit, quality, runtime penalty, confidence, AD penalty.
 - [ ] Make search-space bounds configurable from a checked-in YAML/JSON settings file.
 - [ ] Add candidate constraints for available columns, solvent systems, pH range, flow range, temperature range, and max runtime.
-- [ ] Penalize out-of-domain candidates from trained bundle metadata.
-- [ ] Add tests for ranking stability and score decomposition.
+- [x] Penalize out-of-domain candidates from trained bundle metadata.
+- [x] Add tests for ranking stability and score decomposition.
 
 ## Milestone E: GUI/API Release Polish
 
@@ -60,8 +60,10 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 
 ## Next Recommended Slice
 
-Start with Milestone A plus C-light:
+Next high-value slice:
 
-1. Add optional fingerprint training flag and compare descriptor-only vs descriptor+fingerprint training.
-2. Add recommendation score decomposition and AD penalties.
-3. Run full tests, training, commit, push.
+1. Add checked-in search-space configuration for recommendation bounds.
+2. Add method/column-family holdout metrics and wire them into the Russian PDF dashboard.
+3. Add accepted/failed/low-intensity/poor-resolution/carryover rows to the internal lab template package.
+4. Run core training plus optional Morgan comparison artifact if CPU time is acceptable.
+5. Run full tests, training, commit, push.

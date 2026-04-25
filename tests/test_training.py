@@ -88,6 +88,7 @@ def test_train_forward_models_exports_sota_metadata_and_feature_importance(tmp_p
         "train_test": 0,
         "validation_test": 0,
     }
+    assert len(summary.feature_columns) > 0
     assert summary.uncertainty_metadata["rt"]["method"] == "split_conformal_abs_residual_q90"
     assert summary.uncertainty_metadata["rt"]["q90_min"] >= 0
     assert (tmp_path / "reports" / "feature_importance.csv").exists()
@@ -95,6 +96,7 @@ def test_train_forward_models_exports_sota_metadata_and_feature_importance(tmp_p
     assert (tmp_path / "reports" / "sota_model_experiments.md").exists()
     assert (tmp_path / "reports" / "cv_metrics.csv").exists()
     assert (tmp_path / "reports" / "source_holdout_metrics.csv").exists()
+    assert (tmp_path / "reports" / "retention_order_metrics.csv").exists()
 
     cv_metrics = pd.read_csv(tmp_path / "reports" / "cv_metrics.csv")
     assert {"validation_scope", "target", "model", "mae_mean", "rmse_mean", "r2_mean", "n_folds"}.issubset(
@@ -114,6 +116,27 @@ def test_train_forward_models_exports_sota_metadata_and_feature_importance(tmp_p
 
     predictions = pd.read_csv(tmp_path / "reports" / "test_predictions.csv")
     assert {"rt_error_min", "abs_rt_error_min", "ad_flag", "ad_reason"}.issubset(predictions.columns)
+    order_metrics = pd.read_csv(tmp_path / "reports" / "retention_order_metrics.csv")
+    assert {"pairwise_order_accuracy", "spearman_rt", "n_pairs"}.issubset(order_metrics.columns)
+
+
+def test_train_forward_models_records_morgan_feature_counts(tmp_path):
+    matrix = _training_matrix()
+    matrix["morgan_0"] = [idx % 2 for idx in range(len(matrix))]
+    matrix["morgan_1"] = [(idx + 1) % 2 for idx in range(len(matrix))]
+
+    summary = train_forward_models(
+        matrix,
+        artifact_path=tmp_path / "models" / "bundle.joblib",
+        report_dir=tmp_path / "reports",
+        plots_dir=tmp_path / "plots",
+        feature_set="morgan",
+    )
+
+    assert "morgan_0" in summary.feature_columns
+    report_text = (tmp_path / "reports" / "model_training_summary.md").read_text(encoding="utf-8")
+    assert "Feature set: `morgan`" in report_text
+    assert "'fingerprints': 2" in report_text
 
 
 def test_grouped_split_has_no_inchikey_overlap():

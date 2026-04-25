@@ -146,6 +146,7 @@ def train_forward_models(
     artifact_path: str | Path = "data/processed/models/trained_forward_bundle.joblib",
     report_dir: str | Path = "reports",
     plots_dir: str | Path = "data/processed/plots",
+    feature_set: str = "core",
 ) -> TrainingSummary:
     """Train linear, RandomForest, and HistGradientBoosting models for RT and quality."""
 
@@ -174,7 +175,17 @@ def train_forward_models(
     rt_model = rt_results[best_rt_name]["model"]
     quality_model = quality_results[best_quality_name]["model"]
 
-    test_predictions = test[["compound_name", "source_dataset", "rt_min", "quality_score"]].copy()
+    prediction_context_columns = [
+        "compound_name",
+        "source_dataset",
+        "column_name",
+        "column_chemistry",
+        "stationary_phase_type",
+        "mobile_phase_system",
+        "rt_min",
+        "quality_score",
+    ]
+    test_predictions = test[[col for col in prediction_context_columns if col in test.columns]].copy()
     test_predictions["predicted_rt_min"] = rt_model.predict(test[feature_columns])
     test_predictions["predicted_quality_score"] = np.clip(quality_model.predict(test[feature_columns]), 0, 1)
     test_predictions["rt_error_min"] = test_predictions["predicted_rt_min"] - test_predictions["rt_min"]
@@ -193,6 +204,7 @@ def train_forward_models(
     applicability_domain = _applicability_domain_metadata(train, numeric, categorical)
     cv_metrics = _cv_metrics_frame({"rt_min": rt_cv_results, "quality_score": quality_cv_results}, group_column, usable)
     source_holdout_metrics = _source_family_holdout_metrics(models, usable, feature_columns, ["rt_min", "quality_score"], group_column)
+    retention_order_metrics = _retention_order_metrics(test_predictions)
     validation_metadata = {
         "split_strategy": "group_shuffle_holdout_with_group_kfold_model_selection",
         "cv_strategy": "GroupKFold",
@@ -227,6 +239,16 @@ def train_forward_models(
         "validation_metadata": validation_metadata,
         "uncertainty_metadata": uncertainty_metadata,
         "applicability_domain": applicability_domain,
+        "feature_set": feature_set,
+        "n_morgan_features": len(groups.fingerprints),
+        "feature_group_counts": {
+            "compound": len(groups.compound),
+            "fingerprints": len(groups.fingerprints),
+            "lc_numeric": len(groups.lc_numeric),
+            "lc_categorical": len(groups.lc_categorical),
+            "ms": len(groups.ms),
+            "combined": len(groups.combined),
+        },
         "feature_importance": feature_importance.to_dict("records"),
         "rt_metrics": _metrics_payload(rt_results),
         "quality_metrics": _metrics_payload(quality_results),
@@ -234,6 +256,7 @@ def train_forward_models(
         "quality_cv_metrics": _cv_metrics_payload(quality_cv_results),
         "cv_metrics": cv_metrics.to_dict("records"),
         "source_holdout_metrics": source_holdout_metrics.to_dict("records"),
+        "retention_order_metrics": retention_order_metrics.to_dict("records"),
         "provisional_quality_note": (
             "Quality score is provisional. It uses observed quality_score when present; "
             "otherwise it is a transparent proxy from S/N, resolution, asymmetry, and tailing."
@@ -248,6 +271,7 @@ def train_forward_models(
         feature_importance=feature_importance,
         cv_metrics=cv_metrics,
         source_holdout_metrics=source_holdout_metrics,
+        retention_order_metrics=retention_order_metrics,
         metadata=metadata,
         report_dir=report_dir,
         plots_dir=plots_dir,
@@ -473,6 +497,78 @@ def _source_family(source_dataset: object) -> str:
     return text.split(":", 1)[0]
 
 
+def _retention_order_metrics(
+    predictions: pd.DataFrame,
+    group_columns: list[str] | None = None,
+    max_pairs_per_group: int = 5000,
+) -> pd.DataFrame:
+    """Evaluate whether predicted RT preserves within-method retention order."""
+
+    required = {"rt_min", "predicted_rt_min"}
+    if not required.issubset(predictions.columns):
+        return pd.DataFrame()
+    group_columns = group_columns or ["source_dataset", "column_name", "mobile_phase_system"]
+    group_columns = [col for col in group_columns if col in predictions.columns]
+    if not group_columns:
+        predictions = predictions.copy()
+        predictions["_all"] = "all"
+        group_columns = ["_all"]
+
+    rows = []
+    for group_key, group in predictions.dropna(subset=["rt_min", "predicted_rt_min"]).groupby(group_columns, dropna=False):
+        if len(group) < 2:
+            continue
+        actual = group["rt_min"].to_numpy(dtype=float)
+        predicted = group["predicted_rt_min"].to_numpy(dtype=float)
+        correct = 0
+        comparable = 0
+        pairs_seen = 0
+        for left in range(len(group) - 1):
+            for right in range(left + 1, len(group)):
+                if pairs_seen >= max_pairs_per_group:
+                    break
+                actual_delta = actual[left] - actual[right]
+                predicted_delta = predicted[left] - predicted[right]
+                if actual_delta == 0:
+                    continue
+                comparable += 1
+                if np.sign(actual_delta) == np.sign(predicted_delta):
+                    correct += 1
+                pairs_seen += 1
+            if pairs_seen >= max_pairs_per_group:
+                break
+        if comparable == 0:
+            continue
+        key_values = group_key if isinstance(group_key, tuple) else (group_key,)
+        row = {column: value for column, value in zip(group_columns, key_values)}
+        row.update(
+            {
+                "n_rows": int(len(group)),
+                "n_pairs": int(comparable),
+                "pairwise_order_accuracy": float(correct / comparable),
+                "spearman_rt": float(pd.Series(actual).corr(pd.Series(predicted), method="spearman")),
+            }
+        )
+        rows.append(row)
+
+    if not rows:
+        return pd.DataFrame()
+    frame = pd.DataFrame(rows)
+    summary = {
+        column: "ALL" for column in group_columns
+    }
+    total_pairs = int(frame["n_pairs"].sum())
+    summary.update(
+        {
+            "n_rows": int(predictions.dropna(subset=["rt_min", "predicted_rt_min"]).shape[0]),
+            "n_pairs": total_pairs,
+            "pairwise_order_accuracy": float(np.average(frame["pairwise_order_accuracy"], weights=frame["n_pairs"])),
+            "spearman_rt": float(predictions["rt_min"].corr(predictions["predicted_rt_min"], method="spearman")),
+        }
+    )
+    return pd.concat([pd.DataFrame([summary]), frame], ignore_index=True)
+
+
 def generate_training_outputs(
     model_matrix: pd.DataFrame,
     test_predictions: pd.DataFrame,
@@ -480,6 +576,7 @@ def generate_training_outputs(
     metadata: dict[str, Any],
     cv_metrics: pd.DataFrame | None = None,
     source_holdout_metrics: pd.DataFrame | None = None,
+    retention_order_metrics: pd.DataFrame | None = None,
     report_dir: str | Path = "reports",
     plots_dir: str | Path = "data/processed/plots",
 ) -> Path:
@@ -524,6 +621,7 @@ def generate_training_outputs(
     report = report_dir / "model_training_summary.md"
     cv_metrics = pd.DataFrame() if cv_metrics is None else cv_metrics
     source_holdout_metrics = pd.DataFrame() if source_holdout_metrics is None else source_holdout_metrics
+    retention_order_metrics = pd.DataFrame() if retention_order_metrics is None else retention_order_metrics
     if not source_holdout_metrics.empty:
         px.bar(
             source_holdout_metrics[source_holdout_metrics["target"].eq("rt_min")],
@@ -533,12 +631,16 @@ def generate_training_outputs(
             barmode="group",
             title="Source-family Holdout RT MAE",
         ).write_html(plots_dir / "source_holdout_performance.html")
-    report.write_text(_report_markdown(model_matrix, metadata, source_perf, cv_metrics, source_holdout_metrics), encoding="utf-8")
+    report.write_text(
+        _report_markdown(model_matrix, metadata, source_perf, cv_metrics, source_holdout_metrics, retention_order_metrics),
+        encoding="utf-8",
+    )
     test_predictions.to_csv(report_dir / "test_predictions.csv", index=False)
     feature_importance.to_csv(report_dir / "feature_importance.csv", index=False)
     source_perf.to_csv(report_dir / "source_metrics.csv", index=False)
     cv_metrics.to_csv(report_dir / "cv_metrics.csv", index=False)
     source_holdout_metrics.to_csv(report_dir / "source_holdout_metrics.csv", index=False)
+    retention_order_metrics.to_csv(report_dir / "retention_order_metrics.csv", index=False)
     (report_dir / "sota_model_experiments.md").write_text(_sota_markdown(metadata), encoding="utf-8")
     return report
 
@@ -769,6 +871,8 @@ def _feature_group(feature: str) -> str:
         "mobile_phase_system",
     }
     ms_features = {"ion_mode", "precursor_mz", "product_mz"}
+    if feature.startswith("morgan_"):
+        return "morgan_fingerprint"
     if feature in descriptor_features:
         return "compound_descriptor"
     if feature in lc_numeric:
@@ -895,9 +999,13 @@ def _sota_markdown(metadata: dict[str, Any]) -> str:
     rt_metrics = _markdown_table(pd.DataFrame(metadata["rt_metrics"]).T.round(3).reset_index(names="model"))
     quality_metrics = _markdown_table(pd.DataFrame(metadata["quality_metrics"]).T.round(3).reset_index(names="model"))
     cv_metrics = _markdown_table(pd.DataFrame(metadata.get("cv_metrics", [])).round(3))
+    retention_order = _markdown_table(pd.DataFrame(metadata.get("retention_order_metrics", [])).round(3))
     return f"""# SOTA Model Experiments
 
 This bounded experiment compares CPU-practical tabular regressors for the current demo RT matrix.
+
+- Feature set: `{metadata.get('feature_set', 'core')}`
+- Morgan fingerprint features: {metadata.get('n_morgan_features', 0)}
 
 ## Grouped CV Metrics
 
@@ -913,7 +1021,11 @@ This bounded experiment compares CPU-practical tabular regressors for the curren
 
 Candidate models: {', '.join(metadata.get('candidate_models', []))}
 
-Tree ensembles, XGBoost, and CatBoost are trained on one-hot encoded LC/MS condition categories plus numeric RDKit/method descriptors. Model selection uses GroupKFold by compound identity; source-family holdouts are diagnostic transfer checks.
+## Retention-Order Diagnostic
+
+{retention_order}
+
+Tree ensembles, XGBoost, and CatBoost are trained on one-hot encoded LC/MS condition categories plus numeric RDKit/method descriptors. When enabled, Morgan fingerprints are included as sparse binary compound features. Model selection uses GroupKFold by compound identity; source-family holdouts and retention-order metrics are diagnostic transfer checks.
 """
 
 
@@ -923,6 +1035,7 @@ def _report_markdown(
     source_perf: pd.DataFrame,
     cv_metrics: pd.DataFrame,
     source_holdout_metrics: pd.DataFrame,
+    retention_order_metrics: pd.DataFrame,
 ) -> str:
     source_counts = model_matrix["source_dataset"].value_counts(dropna=False).to_dict()
     rt_metrics = _markdown_table(pd.DataFrame(metadata["rt_metrics"]).T.round(3).reset_index(names="model"))
@@ -930,7 +1043,9 @@ def _report_markdown(
     source_table = _markdown_table(source_perf.round(3))
     cv_table = _markdown_table(cv_metrics.round(3))
     holdout_table = _markdown_table(source_holdout_metrics.round(3))
+    retention_order_table = _markdown_table(retention_order_metrics.round(3))
     model_lines = "\n".join(f"- {name}" for name in metadata.get("candidate_models", []))
+    feature_group_counts = metadata.get("feature_group_counts", {})
     return f"""# LC-MS/MS Model Training Summary
 
 ## Datasets Used
@@ -941,7 +1056,11 @@ def _report_markdown(
 
 ## Feature Set
 
-The model uses RDKit compound descriptors, simplified LC gradient encodings, column/mobile-phase categories, and MS setting fields. Morgan fingerprints are available from the descriptor pipeline but are not enabled in the small demo training run to avoid overfitting tiny seed data.
+Feature set: `{metadata.get('feature_set', 'core')}`.
+
+Feature group counts: {feature_group_counts}
+
+The model uses RDKit compound descriptors, simplified LC gradient encodings, column/mobile-phase categories, and MS setting fields. Morgan fingerprints can be enabled as an explicit training feature set and are reported separately to prevent silent descriptor-set changes.
 
 ## Validation Design
 
@@ -977,6 +1096,10 @@ The model uses RDKit compound descriptors, simplified LC gradient encodings, col
 ## Source-Family Holdout Metrics
 
 {holdout_table}
+
+## Retention-Order Diagnostic
+
+{retention_order_table}
 
 ## Parameter Significance
 
