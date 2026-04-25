@@ -209,6 +209,7 @@ Latest expanded local training build:
 - validation: GroupKFold by `inchikey`, final grouped holdout, plus source-family, method, and column-family holdouts
 
 The expanded `master_dataset.csv`, `model_matrix.csv`, and trained bundle are large generated local artifacts. They are reproducible from the commands above and should not be staged into normal git commits until an artifact/LFS policy is introduced.
+See `docs/artifact_policy.md` and `reports/local_artifact_manifest.md` for the current artifact handling rules and local size manifest.
 
 ## Internal Lab Onboarding
 
