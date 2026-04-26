@@ -66,6 +66,9 @@ def _load_dashboard_data() -> dict[str, object]:
         "importance": _read_csv(REPORTS_DIR / "feature_importance.csv"),
         "source_metrics": _read_csv(REPORTS_DIR / "source_metrics.csv"),
         "predictions": _read_csv(REPORTS_DIR / "test_predictions.csv"),
+        "target_coverage": _read_csv(REPORTS_DIR / "target_coverage_matrix.csv"),
+        "inverse_metrics": _read_csv(REPORTS_DIR / "inverse_model_metrics.csv"),
+        "inverse_topk": _read_csv(REPORTS_DIR / "inverse_topk_evaluation.csv"),
         "metadata": metadata,
     }
 
@@ -80,6 +83,7 @@ def build_pdf(path: Path, data: dict[str, object]) -> None:
             _page_model_comparison,
             _page_transfer_validation,
             _page_feature_and_error_analysis,
+            _page_target_inverse_models,
             _page_roadmap,
         ):
             fig = _new_page()
@@ -320,6 +324,78 @@ def _page_feature_and_error_analysis(fig: plt.Figure, data: dict[str, object]) -
         color=INK,
         va="top",
         transform=ax_ad.transAxes,
+    )
+
+
+def _page_target_inverse_models(fig: plt.Figure, data: dict[str, object]) -> None:
+    coverage: pd.DataFrame = data["target_coverage"]  # type: ignore[assignment]
+    inverse_metrics: pd.DataFrame = data["inverse_metrics"]  # type: ignore[assignment]
+    inverse_topk: pd.DataFrame = data["inverse_topk"]  # type: ignore[assignment]
+
+    _title(
+        fig,
+        "Peak targets и ML-модель обратной задачи",
+        "Эта страница отделяет измеренные peak labels от proxy targets и показывает baseline для inverse ranking.",
+    )
+
+    ax_cov = fig.add_axes([0.055, 0.50, 0.45, 0.34])
+    if not coverage.empty:
+        cov = coverage.head(12).copy()
+        _barh(
+            ax_cov,
+            cov.set_index("target")["coverage_fraction"].sort_values(),
+            "Target coverage",
+            "доля строк",
+            TEAL,
+            value_fmt="{:.2f}",
+        )
+    else:
+        _empty(ax_cov, "Нет target_coverage_matrix.csv")
+
+    ax_cov_table = fig.add_axes([0.56, 0.50, 0.38, 0.34])
+    _draw_table(
+        ax_cov_table,
+        ["Target", "Coverage", "Label", "Readiness"],
+        _rows(coverage, ["target", "coverage_fraction", "label_source", "readiness"], limit=11),
+        [0.35, 0.16, 0.22, 0.22],
+        font_size=7.2,
+    )
+
+    ax_inv = fig.add_axes([0.055, 0.17, 0.43, 0.23])
+    if not inverse_metrics.empty and "pr_auc" in inverse_metrics:
+        best = inverse_metrics.sort_values("pr_auc", ascending=True).tail(8)
+        _barh(ax_inv, best.set_index("model")["pr_auc"], "Inverse PR-AUC", "PR-AUC", BLUE, highlight_min=False)
+    else:
+        _empty(ax_inv, "Нет inverse_model_metrics.csv")
+
+    ax_inv_table = fig.add_axes([0.55, 0.17, 0.39, 0.23])
+    if not inverse_metrics.empty and not inverse_topk.empty:
+        merge_keys = ["model", "label_source"] if "label_source" in inverse_metrics and "label_source" in inverse_topk else ["model"]
+        merged = inverse_metrics.merge(inverse_topk, on=merge_keys, how="left")
+    else:
+        merged = inverse_metrics
+    _draw_table(
+        ax_inv_table,
+        ["Model", "ROC-AUC", "PR-AUC", "Brier", "Top-3"],
+        _rows(merged.sort_values("pr_auc", ascending=False) if "pr_auc" in merged else merged, ["model", "roc_auc", "pr_auc", "brier_score", "top_3_success"], limit=8),
+        [0.34, 0.16, 0.16, 0.16, 0.14],
+        font_size=7.2,
+    )
+
+    ax_note = fig.add_axes([0.055, 0.06, 0.89, 0.08])
+    _panel(ax_note, face="#FFF9EC", edge="#E6D5AA")
+    ax_note.text(
+        0.025,
+        0.62,
+        _wrap_text(
+            "Inverse labels сейчас synthetic_proxy: они проверяют ранжирование candidate methods, но не заменяют реальные accepted/failed lab outcomes.",
+            130,
+        ),
+        fontsize=8.6,
+        fontweight="bold",
+        color=AMBER,
+        va="center",
+        transform=ax_note.transAxes,
     )
 
 

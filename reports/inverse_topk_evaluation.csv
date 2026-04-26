@@ -1,0 +1,7 @@
+model,top_1_success,top_3_success,top_5_success,mean_first_suitable_rank,label_source
+logistic_regression,1.0,1.0,1.0,1.0,synthetic_proxy
+random_forest,1.0,1.0,1.0,1.0,synthetic_proxy
+extra_trees,1.0,1.0,1.0,1.0,synthetic_proxy
+hist_gradient_boosting,1.0,1.0,1.0,1.0,synthetic_proxy
+xgboost,1.0,1.0,1.0,1.0,synthetic_proxy
+catboost,1.0,1.0,1.0,1.0,synthetic_proxy

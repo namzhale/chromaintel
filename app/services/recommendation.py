@@ -6,6 +6,7 @@ from itertools import product
 from pathlib import Path
 from typing import Any
 
+import joblib
 import numpy as np
 
 from app.core.config import get_settings
@@ -15,6 +16,7 @@ from app.services.predictor import ForwardPredictor
 
 
 DEFAULT_SEARCH_SPACE_PATH = Path(__file__).resolve().parents[2] / "config" / "recommendation_search_space.json"
+DEFAULT_INVERSE_BUNDLE_PATH = Path(__file__).resolve().parents[2] / "data" / "processed" / "models" / "inverse_recommendation_bundle.joblib"
 
 
 @dataclass
@@ -78,11 +80,13 @@ class RecommendationEngine:
         search_space: CandidateSearchSpace | None = None,
         weights: dict[str, float] | None = None,
         known_methods: list[dict[str, Any]] | None = None,
+        inverse_ranker: Any | None = None,
     ):
         settings = get_settings()
         self.predictor = predictor
         self.search_space = search_space or CandidateSearchSpace.default()
         self.known_methods = known_methods or []
+        self.inverse_ranker = inverse_ranker if inverse_ranker is not None else self._load_inverse_ranker()
         self.weights = weights or {
             "quality": settings.recommendation_quality_weight,
             "rt_fit": settings.recommendation_rt_weight,
@@ -128,12 +132,15 @@ class RecommendationEngine:
             rt_fit = 1.0 - min(abs(pred["predicted_rt_min"] - target_rt_min) / max(target_rt_min, 0.1), 1.0)
             runtime_penalty = min(method.runtime_min / max(self.search_space.max_runtime_min, 0.1), 1.0)
             ad_penalty = 1.0 if pred.get("out_of_domain") else 0.0
+            inverse_result = self._score_with_inverse_ranker(compound, method, pred, target_rt_min, constraints)
+            inverse_score = inverse_result.get("score")
             score = (
                 + self.weights["rt_fit"] * rt_fit
                 + self.weights["quality"] * pred["quality_score"]
                 - self.weights["runtime"] * runtime_penalty
                 + self.weights["confidence"] * pred["confidence"]
                 - self.weights.get("ad_penalty", 0.0) * ad_penalty
+                + 0.1 * float(inverse_score if inverse_score is not None else 0.0)
             )
             rt_contribution = self.weights["rt_fit"] * rt_fit
             quality_contribution = self.weights["quality"] * pred["quality_score"]
@@ -152,8 +159,13 @@ class RecommendationEngine:
                 "confidence_contribution": round(float(confidence_contribution), 4),
                 "ad_penalty_contribution": round(float(ad_contribution), 4),
             }
+            if inverse_score is not None:
+                components["inverse_model_score"] = round(float(inverse_score), 4)
+                components["inverse_model_contribution"] = round(float(0.1 * inverse_score), 4)
             nearest_known_methods = self._nearest_known_methods(method, compound)
             reason_codes = self._reason_codes(pred, rt_fit, runtime_penalty, ad_penalty, constraints, nearest_known_methods)
+            if inverse_result.get("model_name"):
+                reason_codes.append(f"inverse_model:{inverse_result['model_name']}")
             candidates.append(
                 RecommendationCandidate(
                     rank=0,
@@ -170,6 +182,9 @@ class RecommendationEngine:
                     reason_codes=reason_codes,
                     forward_prediction=self._forward_prediction_summary(pred),
                     nearest_known_methods=nearest_known_methods,
+                    inverse_model_enabled=bool(inverse_score is not None),
+                    inverse_model_score=round(float(inverse_score), 4) if inverse_score is not None else None,
+                    inverse_model_label_source=inverse_result.get("label_source"),
                     explanation=(
                         f"Predicted RT is {pred['predicted_rt_min']:.2f} min versus target RT "
                         f"{target_rt_min:.2f} min; quality is {pred['quality_score']:.2f}. "
@@ -186,6 +201,30 @@ class RecommendationEngine:
             reverse=True,
         )[:top_n]
         return [candidate.model_copy(update={"rank": idx + 1}) for idx, candidate in enumerate(ranked)]
+
+    @staticmethod
+    def _load_inverse_ranker() -> Any | None:
+        if not DEFAULT_INVERSE_BUNDLE_PATH.exists():
+            return None
+        try:
+            return joblib.load(DEFAULT_INVERSE_BUNDLE_PATH)
+        except Exception:
+            return None
+
+    def _score_with_inverse_ranker(
+        self,
+        compound: dict[str, Any],
+        method: MethodInput,
+        prediction: dict[str, Any],
+        target_rt_min: float,
+        constraints: dict[str, Any],
+    ) -> dict[str, Any]:
+        if self.inverse_ranker is None:
+            return {}
+        try:
+            return dict(self.inverse_ranker.score_candidate(compound, method, prediction, target_rt_min, constraints))
+        except Exception:
+            return {}
 
     def _candidate_methods(
         self,

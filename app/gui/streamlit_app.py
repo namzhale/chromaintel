@@ -32,6 +32,9 @@ REPORTS_DIR = PROJECT_ROOT / "reports"
 FEATURE_IMPORTANCE_PATH = REPORTS_DIR / "feature_importance.csv"
 TEST_PREDICTIONS_PATH = REPORTS_DIR / "test_predictions.csv"
 SOURCE_METRICS_PATH = REPORTS_DIR / "source_metrics.csv"
+TARGET_COVERAGE_PATH = REPORTS_DIR / "target_coverage_matrix.csv"
+INVERSE_METRICS_PATH = REPORTS_DIR / "inverse_model_metrics.csv"
+INVERSE_TOPK_PATH = REPORTS_DIR / "inverse_topk_evaluation.csv"
 TRAINED_MODEL_PATH = PROCESSED_DIR / "models" / "trained_forward_bundle.joblib"
 MOCK_TRAINING_RECORDS_PATH = PROJECT_ROOT / "data" / "mock_training_records.csv"
 TEMPLATES_DIR = PROJECT_ROOT / "data" / "templates"
@@ -103,6 +106,9 @@ def _render_training_artifacts() -> None:
     predictions = _read_csv(TEST_PREDICTIONS_PATH)
     source_metrics = _read_csv(SOURCE_METRICS_PATH)
     importance = _read_csv(FEATURE_IMPORTANCE_PATH)
+    target_coverage = _read_csv(TARGET_COVERAGE_PATH)
+    inverse_metrics = _read_csv(INVERSE_METRICS_PATH)
+    inverse_topk = _read_csv(INVERSE_TOPK_PATH)
 
     if predictions is not None and not predictions.empty:
         st.subheader("Held-out RT validation")
@@ -170,6 +176,51 @@ def _render_training_artifacts() -> None:
         ]
         st.dataframe(importance[display_cols].round(3), use_container_width=True, hide_index=True)
         st.caption("Permutation importance is computed on the held-out RT split; weak or negative values are unstable diagnostics on tiny test sets.")
+
+    if target_coverage is not None and not target_coverage.empty:
+        st.subheader("Peak target readiness")
+        plot_frame = target_coverage.copy()
+        if "coverage_fraction" in plot_frame:
+            plot_frame["coverage_percent"] = plot_frame["coverage_fraction"].astype(float) * 100.0
+            st.plotly_chart(
+                px.bar(
+                    plot_frame,
+                    x="coverage_percent",
+                    y="target",
+                    color="readiness",
+                    orientation="h",
+                    title="Direct and proxy target coverage",
+                    hover_data=[col for col in ["available_rows", "label_source", "recommended_action"] if col in plot_frame],
+                ),
+                use_container_width=True,
+            )
+        display_cols = [
+            col
+            for col in ["target", "available_rows", "coverage_fraction", "label_source", "readiness", "recommended_action"]
+            if col in target_coverage
+        ]
+        st.dataframe(target_coverage[display_cols], use_container_width=True, hide_index=True)
+
+    if inverse_metrics is not None and not inverse_metrics.empty:
+        st.subheader("Inverse recommendation ML baselines")
+        chart_frame = inverse_metrics.copy()
+        metric_col = "pr_auc" if "pr_auc" in chart_frame else "roc_auc" if "roc_auc" in chart_frame else None
+        if metric_col:
+            st.plotly_chart(
+                px.bar(
+                    chart_frame.sort_values(metric_col, ascending=False),
+                    x=metric_col,
+                    y="model",
+                    color="label_source" if "label_source" in chart_frame else None,
+                    orientation="h",
+                    title=f"Inverse model {metric_col.upper()}",
+                ),
+                use_container_width=True,
+            )
+        st.dataframe(inverse_metrics.round(4), use_container_width=True, hide_index=True)
+        if inverse_topk is not None and not inverse_topk.empty:
+            st.dataframe(inverse_topk.round(4), use_container_width=True, hide_index=True)
+        st.caption("Inverse recommendation labels are currently synthetic/proxy labels derived from observed method suitability; internal accepted/failed assays are required for production-grade inverse validation.")
 
 
 def _issue_frame(issues: list[Any]) -> pd.DataFrame:
@@ -510,6 +561,8 @@ def method_recommendation() -> None:
     ms = MSSettingsInput(ionization_mode=st.selectbox("Recommendation ionization", ["positive", "negative", "unknown"]))
     if st.button("Generate candidates", type="primary"):
         engine = RecommendationEngine(ForwardPredictor())
+        if engine.inverse_ranker is not None:
+            st.info("Inverse ML reranker enabled. Scores are proxy-trained until internal accepted/failed assay labels are imported.")
         recs = engine.recommend(
             compound.model_dump(exclude_none=True),
             target_rt_min=target_rt,
@@ -527,6 +580,8 @@ def method_recommendation() -> None:
                 c2.metric("Quality", f"{rec.predicted_quality_score:.2f}")
                 c3.metric("Runtime", f"{rec.estimated_runtime_min:.1f} min")
                 c4.metric("Confidence", f"{rec.confidence:.2f}")
+                if rec.inverse_model_enabled:
+                    st.metric("Inverse ML score", f"{rec.inverse_model_score:.2f}" if rec.inverse_model_score is not None else "n/a")
                 st.write(f"Score: {rec.score:.3f}. {rec.explanation}")
 
 

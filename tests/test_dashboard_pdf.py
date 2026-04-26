@@ -108,6 +108,28 @@ def test_dashboard_pdf_smoke_builds_russian_report(tmp_path):
                 }
             ]
         ),
+        "target_coverage": pd.DataFrame(
+            [
+                {
+                    "target": "rt_min",
+                    "coverage_fraction": 1.0,
+                    "label_source": "measured",
+                    "readiness": "trainable",
+                },
+                {
+                    "target": "peak_width_base_min",
+                    "coverage_fraction": 0.0,
+                    "label_source": "unavailable",
+                    "readiness": "unavailable",
+                },
+            ]
+        ),
+        "inverse_metrics": pd.DataFrame(
+            [{"model": "extra_trees", "roc_auc": 0.9, "pr_auc": 0.85, "brier_score": 0.12}]
+        ),
+        "inverse_topk": pd.DataFrame(
+            [{"model": "extra_trees", "top_1_success": 0.5, "top_3_success": 0.8, "top_5_success": 0.9}]
+        ),
         "metadata": {
             "best_rt_model": "extra_trees",
             "best_quality_model": "random_forest",

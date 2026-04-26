@@ -9,6 +9,8 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 - Current verified tests after the expanded data/model slice: `77 passed` with project `.venv`.
 - Current trained demo artifact exists locally at `data/processed/models/trained_forward_bundle.joblib`; the expanded artifact is too large for normal git commits and should stay local until an artifact/LFS policy exists.
 - Current expanded local training matrix is 213,941 rows and 202,834 compounds after ReTiNA, METLIN SMRT Figshare, RepoRT, MCMRT, and mock/internal seed assembly; quality target still provisional.
+- Current direct-target readiness: measured RT is trainable; quality and risk labels are provisional proxies; asymmetry, tailing, peak widths, resolution, S/N, peak area, and peak height are schema-ready but still need internal or curated measured labels.
+- Current inverse recommendation ML baseline exists locally as a proxy-trained reranker; metrics are diagnostic because labels are synthetic suitability proxies, not real accepted/failed assay outcomes.
 - Large generated local artifacts are intentionally dirty/uncommitted unless explicitly staged through an artifact workflow: `data/processed/master_dataset.csv`, `data/processed/model_matrix.csv`, and `data/processed/models/trained_forward_bundle.joblib`.
 
 ## Milestone A: Data Expansion And Canonical Ingestion
@@ -43,11 +45,13 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 - [x] Add candidate constraints for available columns, solvent systems, pH range, flow range, temperature range, and max runtime.
 - [x] Penalize out-of-domain candidates from trained bundle metadata.
 - [x] Add tests for ranking stability and score decomposition.
+- [x] Add optional inverse ML reranker trained on synthetic/proxy suitability labels and expose its score decomposition.
 
 ## Milestone E: GUI/API Release Polish
 
 - [ ] Add GUI import preview for literature-extracted and local-public processed CSVs.
 - [ ] Add Model Evaluation page views for source metrics, feature significance, AD flags, and uncertainty interval.
+- [x] Add Training/Model Evaluation views for direct target readiness and inverse recommendation ML proxy metrics.
 - [ ] Add API tests for prediction, recommendation, and dataset browser endpoints.
 - [ ] Smoke-test Streamlit and FastAPI locally.
 - [ ] Add screenshots or placeholder screenshots only after GUI smoke passes.
@@ -73,3 +77,4 @@ Recently completed continuation slices:
 
 - Added an artifact policy and local artifact manifest for the 213,941-row dataset and 188 MB trained bundle.
 - Rebuilt the Russian PDF dashboard with source/method/column-family holdout metrics, feature importance, AD notes, and roadmap.
+- Added direct-target readiness reporting, DL preparation manifests for pairwise/inverse tasks, proxy-trained inverse recommendation ML baselines, and dashboard/README integration.

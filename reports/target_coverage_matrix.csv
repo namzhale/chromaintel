@@ -1,0 +1,17 @@
+target,available_rows,total_rows,coverage_fraction,label_source,readiness,train_action
+rt_min,213941,213941,1.0,measured,trainable,train supervised baseline
+quality_score,213941,213941,1.0,derived_proxy,trainable,train supervised baseline
+asymmetry,0,213941,0.0,unavailable,unavailable,skip; collect internal lab labels
+tailing_factor,0,213941,0.0,unavailable,unavailable,skip; collect internal lab labels
+peak_width_base_min,0,213941,0.0,unavailable,unavailable,skip; collect internal lab labels
+peak_width_half_height_min,0,213941,0.0,unavailable,unavailable,skip; collect internal lab labels
+resolution,0,213941,0.0,unavailable,unavailable,skip; collect internal lab labels
+sn_ratio,0,213941,0.0,unavailable,unavailable,skip; collect internal lab labels
+peak_area,0,213941,0.0,unavailable,unavailable,skip; collect internal lab labels
+peak_height,0,213941,0.0,unavailable,unavailable,skip; collect internal lab labels
+low_intensity_risk,0,213941,0.0,derived_proxy,proxy_only,derive transparent risk proxy; do not claim measured peak label
+poor_resolution_risk,0,213941,0.0,derived_proxy,proxy_only,derive transparent risk proxy; do not claim measured peak label
+asymmetry_risk,0,213941,0.0,derived_proxy,proxy_only,derive transparent risk proxy; do not claim measured peak label
+broad_peak_risk,0,213941,0.0,derived_proxy,proxy_only,derive transparent risk proxy; do not claim measured peak label
+void_or_unretained_risk,0,213941,0.0,derived_proxy,proxy_only,derive transparent risk proxy; do not claim measured peak label
+late_elution_risk,0,213941,0.0,derived_proxy,proxy_only,derive transparent risk proxy; do not claim measured peak label

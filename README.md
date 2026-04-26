@@ -11,6 +11,8 @@ Practical local MVP for bioanalytical small-molecule LC-MS/MS method development
 - Offline compound identity resolver with confidence labels and unresolved/ambiguous mapping reports.
 - Multi-model CPU training for RT and provisional quality using Ridge, RandomForest, ExtraTrees, HistGradientBoosting, XGBoost, and CatBoost.
 - Optional dependency-gated graph and SMILES-transformer embedding branches with offline smoke tests.
+- Direct-task target readiness reports for RT, asymmetry, tailing, peak width, resolution, S/N, peak area, peak height, and provisional risk targets.
+- Proxy-trained inverse recommendation ML baselines that rerank generated methods while preserving transparent score decomposition.
 - Heuristic fallback predictions so the GUI remains useful before model artifacts exist.
 - Recommendation engine that generates candidate methods and ranks them by RT fit, quality, runtime, confidence, and applicability-domain support.
 - Streamlit pages: Dashboard, Compound lookup, Forward prediction, Method recommendation, Dataset browser, Model evaluation, Admin/import.
@@ -82,7 +84,7 @@ Generate a compact PDF dashboard for presentation or review:
 python scripts/generate_dashboard_pdf.py
 ```
 
-This writes a Russian presentation-style dashboard at `reports/chromaintel_dashboard_report.pdf` with dataset size, model comparison, GroupKFold metrics, source/method/column-family holdouts, source-wise errors, parameter significance, applicability-domain notes, and the next roadmap.
+This writes a Russian presentation-style dashboard at `reports/chromaintel_dashboard_report.pdf` with dataset size, model comparison, GroupKFold metrics, source/method/column-family holdouts, source-wise errors, parameter significance, direct-target readiness, inverse recommendation ML diagnostics, applicability-domain notes, and the next roadmap.
 
 Run the GUI:
 
@@ -94,6 +96,7 @@ The GUI includes Dataset Assembly and Training pages. Forward Prediction and Met
 Trained predictions also expose applicability-domain flags and reasons based on saved training feature ranges and categorical values.
 
 Recommendation candidate generation uses the checked-in method search space at `config/recommendation_search_space.json`. The engine can constrain available columns, solvent systems, pH range, flow range, temperature range, and maximum runtime at request time.
+If `data/processed/models/inverse_recommendation_bundle.joblib` exists, Method Recommendation also applies the proxy-trained inverse suitability reranker and shows its contribution. Those labels are `synthetic_proxy` until internal accepted/failed assay outcomes are imported.
 
 Run the API:
 
@@ -178,7 +181,36 @@ Prepare dependency-light graph/SMILES-transformer manifests for later DL experim
 python scripts/prepare_dl_datasets.py
 ```
 
-This writes ignored local manifests under `data/processed/dl/` and records dependency availability in `reports/benchmarks/dl_dataset_prep_report.json`. Neural model training remains optional and dependency-gated.
+This writes ignored local manifests under `data/processed/dl/` and records dependency availability in `reports/benchmarks/dl_dataset_prep_report.json`. The current preparation step creates graph rows, SMILES-transformer rows with `method_text`, within-method pairwise retention-order pairs, inverse-task candidate rows, and per-row target label-source metadata. Neural model training remains optional and dependency-gated.
+
+Generate readiness reports for direct prediction targets and provisional risk targets:
+
+```powershell
+python scripts/analyze_target_readiness.py
+```
+
+This writes:
+
+- `reports/target_coverage_matrix.csv`
+- `reports/peak_metric_target_readiness.md`
+
+Current public data support measured `rt_min`, derived/proxy `quality_score`, and proxy risk targets. Peak asymmetry, tailing, peak width at base, peak width at half height, resolution, S/N, peak area, and peak height are schema-ready but require internal lab exports or curated literature extraction before they become measured training targets.
+
+Train CPU-friendly inverse recommendation ML baselines:
+
+```powershell
+python scripts/train_inverse_models.py --quick
+```
+
+This writes:
+
+- `data/processed/models/inverse_recommendation_bundle.joblib`
+- `reports/inverse_model_metrics.csv`
+- `reports/inverse_model_metrics.md`
+- `reports/inverse_topk_evaluation.csv`
+- `reports/inverse_training_table_sample.csv`
+
+The inverse task is currently trained on `synthetic_proxy` labels generated from observed RT fit, provisional quality, runtime, and constraint violations. Treat these metrics as a pipeline/ranking diagnostic, not as evidence of production assay success until internal accepted/failed method outcomes are available.
 
 Large public downloads, DL manifests, and descriptor sidecars are intentionally ignored by git. See `reports/public_dataset_expansion_summary.md` and `docs/data_sources/retina_and_kaggle_metlin.md` for row counts and provenance notes.
 
@@ -240,6 +272,8 @@ The generated report at `reports/model_training_summary.md` contains:
 - method and column-family holdout diagnostics
 - unified evaluation and benchmark matrices
 - retention-order diagnostics for within-method ranking behavior
+- direct-target readiness for RT, peak-shape fields, intensity fields, and proxy risk targets
+- inverse recommendation ML metrics and top-k proxy success diagnostics
 - source-wise performance
 - split-conformal q90 RT uncertainty proxy
 - applicability-domain flags for held-out predictions

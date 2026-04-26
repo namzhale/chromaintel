@@ -30,4 +30,7 @@ class RecommendationCandidate(BaseModel):
     reason_codes: list[str] = Field(default_factory=list)
     forward_prediction: dict[str, Any] = Field(default_factory=dict)
     nearest_known_methods: list[dict[str, Any]] = Field(default_factory=list)
+    inverse_model_enabled: bool = False
+    inverse_model_score: float | None = None
+    inverse_model_label_source: str | None = None
     explanation: str

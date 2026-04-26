@@ -20,6 +20,7 @@ from app.models.transformer_embeddings import detect_encoder_availability
 from app.schemas.dataset import CANONICAL_DATASET_COLUMNS, NUMERIC_CANONICAL_COLUMNS
 from app.services.dataset_assembly import ALIASES
 from app.services.descriptors import DescriptorCalculator, InvalidStructureError
+from app.services.target_readiness import target_label_sources_for_row
 
 
 DEFAULT_INPUTS = [
@@ -56,6 +57,16 @@ DL_BASE_COLUMNS = [
     "product_mz",
     "matrix",
     "rt_min",
+    "quality_score",
+    "asymmetry",
+    "tailing_factor",
+    "resolution",
+    "sn_ratio",
+    "peak_area",
+    "peak_height",
+    "peak_width_base_min",
+    "peak_width_half_height_min",
+    "target_label_sources_json",
     "split",
 ]
 
@@ -64,10 +75,13 @@ DL_BASE_COLUMNS = [
 class DLDatasetOutputs:
     graph_manifest_path: Path
     transformer_manifest_path: Path
+    pairwise_manifest_path: Path
+    inverse_manifest_path: Path
     report_path: Path
     input_rows: int
     valid_rows: int
     filtered_invalid_smiles: int
+    pairwise_pairs: int
     split_strategy: str
     max_rows: int | None
     input_paths: list[str]
@@ -80,6 +94,7 @@ def prepare_dl_datasets(
     max_rows: int | None = None,
     split_seed: int = 42,
     encoder_family: str = "chemberta",
+    pair_delta_rt_min: float = 0.05,
 ) -> DLDatasetOutputs:
     """Write dependency-light graph and SMILES-transformer dataset manifests."""
 
@@ -100,12 +115,18 @@ def prepare_dl_datasets(
 
     graph_manifest = _graph_manifest(prepared)
     transformer_manifest = _transformer_manifest(prepared, encoder_family=encoder_family)
+    pairwise_manifest = _pairwise_retention_order_manifest(prepared, delta_rt_min=pair_delta_rt_min)
+    inverse_manifest = _inverse_task_manifest(prepared)
     graph_path = output / "graph_manifest.csv"
     transformer_path = output / "smiles_transformer_manifest.csv"
+    pairwise_path = output / "pairwise_retention_order_manifest.csv"
+    inverse_path = output / "inverse_task_manifest.csv"
     report_path = reports / "dl_dataset_prep_report.json"
 
     graph_manifest.to_csv(graph_path, index=False)
     transformer_manifest.to_csv(transformer_path, index=False)
+    pairwise_manifest.to_csv(pairwise_path, index=False)
+    inverse_manifest.to_csv(inverse_path, index=False)
     split_strategy = _split_strategy(combined)
     report = {
         "status": "prepared",
@@ -118,6 +139,10 @@ def prepare_dl_datasets(
         "split_counts": prepared["split"].value_counts(dropna=False).to_dict(),
         "graph_manifest_path": str(graph_path),
         "transformer_manifest_path": str(transformer_path),
+        "pairwise_manifest_path": str(pairwise_path),
+        "inverse_manifest_path": str(inverse_path),
+        "pairwise_pairs": int(len(pairwise_manifest)),
+        "inverse_rows": int(len(inverse_manifest)),
         "graph_availability": detect_graph_availability().backend_status,
         "encoder_availability": detect_encoder_availability(encoder_family).to_metadata(),
     }
@@ -126,10 +151,13 @@ def prepare_dl_datasets(
     return DLDatasetOutputs(
         graph_manifest_path=graph_path,
         transformer_manifest_path=transformer_path,
+        pairwise_manifest_path=pairwise_path,
+        inverse_manifest_path=inverse_path,
         report_path=report_path,
         input_rows=input_rows,
         valid_rows=int(len(prepared)),
         filtered_invalid_smiles=filtered_invalid,
+        pairwise_pairs=int(len(pairwise_manifest)),
         split_strategy=split_strategy,
         max_rows=max_rows,
         input_paths=[str(path) for path in existing_paths],
@@ -178,6 +206,10 @@ def build_dl_manifest_frame(
     for column in DL_BASE_COLUMNS:
         if column not in manifest:
             manifest[column] = pd.NA
+    manifest["target_label_sources_json"] = manifest.apply(
+        lambda row: json.dumps(target_label_sources_for_row(row.to_dict()), sort_keys=True),
+        axis=1,
+    )
     return manifest[DL_BASE_COLUMNS].reset_index(drop=True), invalid_count
 
 
@@ -197,7 +229,7 @@ def _deduplicate_manifest(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def _read_source(path: Path) -> pd.DataFrame:
-    frame = pd.read_csv(path)
+    frame = pd.read_csv(path, low_memory=False)
     if "source_dataset" not in frame:
         frame["source_dataset"] = path.stem
     return frame
@@ -288,7 +320,80 @@ def _transformer_manifest(frame: pd.DataFrame, encoder_family: str) -> pd.DataFr
     manifest["encoder_model_id"] = availability.model_id
     manifest["encoder_status"] = availability.status
     manifest["encoder_input"] = manifest["canonical_smiles"]
+    manifest["method_text"] = manifest.apply(_method_text, axis=1)
     return manifest
+
+
+def _pairwise_retention_order_manifest(frame: pd.DataFrame, delta_rt_min: float = 0.05) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    if frame.empty or "rt_min" not in frame:
+        return pd.DataFrame(columns=["compound_i", "compound_j", "method_key", "rt_i", "rt_j", "delta_rt", "order_label", "source_dataset"])
+    grouped = frame.dropna(subset=["rt_min"]).groupby(_method_key_columns(frame), dropna=False)
+    for method_key, group in grouped:
+        sorted_group = group.sort_values("rt_min").head(100)
+        records = sorted_group.to_dict("records")
+        for i, left in enumerate(records):
+            for right in records[i + 1 :]:
+                delta = float(right["rt_min"]) - float(left["rt_min"])
+                if abs(delta) < delta_rt_min:
+                    continue
+                rows.append(
+                    {
+                        "compound_i": left.get("canonical_smiles"),
+                        "compound_j": right.get("canonical_smiles"),
+                        "inchikey_i": left.get("inchikey"),
+                        "inchikey_j": right.get("inchikey"),
+                        "method_key": "|".join(map(str, method_key if isinstance(method_key, tuple) else (method_key,))),
+                        "rt_i": float(left["rt_min"]),
+                        "rt_j": float(right["rt_min"]),
+                        "delta_rt": abs(delta),
+                        "order_label": 1,
+                        "source_dataset": left.get("source_dataset"),
+                    }
+                )
+                if len(rows) >= 50000:
+                    return pd.DataFrame(rows)
+    return pd.DataFrame(rows)
+
+
+def _inverse_task_manifest(frame: pd.DataFrame) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    for _, row in frame.dropna(subset=["rt_min"]).iterrows():
+        record = row.to_dict()
+        rows.append(
+            {
+                "compound_name": record.get("compound_name"),
+                "canonical_smiles": record.get("canonical_smiles"),
+                "inchikey": record.get("inchikey"),
+                "source_dataset": record.get("source_dataset"),
+                "target_rt_min": record.get("rt_min"),
+                "desired_quality_min": 0.65,
+                "max_runtime_min": record.get("total_runtime_min"),
+                "candidate_column_name": record.get("column_name"),
+                "candidate_method_text": _method_text(row),
+                "observed_quality_score": record.get("quality_score"),
+                "label_source": "observed_method_proxy",
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _method_text(row: pd.Series) -> str:
+    parts = [
+        f"column={row.get('column_name', 'unknown')}",
+        f"mobile_a={row.get('mobile_phase_a', 'unknown')}",
+        f"mobile_b={row.get('mobile_phase_b', 'unknown')}",
+        f"pH={row.get('ph', 'unknown')}",
+        f"flow={row.get('flow_ml_min', 'unknown')} mL/min",
+        f"temp={row.get('temperature_c', 'unknown')} C",
+        f"runtime={row.get('total_runtime_min', 'unknown')} min",
+    ]
+    return "; ".join(parts)
+
+
+def _method_key_columns(frame: pd.DataFrame) -> list[str]:
+    candidates = ["source_dataset", "column_name", "mobile_phase_a", "mobile_phase_b", "total_runtime_min"]
+    return [column for column in candidates if column in frame.columns]
 
 
 def _first_text(*values: object) -> str | None:
@@ -317,6 +422,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-rows", type=int, default=None)
     parser.add_argument("--split-seed", type=int, default=42)
     parser.add_argument("--encoder-family", default="chemberta")
+    parser.add_argument("--pair-delta-rt-min", type=float, default=0.05)
     return parser
 
 
@@ -329,6 +435,7 @@ def main(argv: list[str] | None = None) -> int:
         max_rows=args.max_rows,
         split_seed=args.split_seed,
         encoder_family=args.encoder_family,
+        pair_delta_rt_min=args.pair_delta_rt_min,
     )
     print("DL dataset preparation complete")
     print(f"Input rows: {outputs.input_rows}")
@@ -337,6 +444,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Split strategy: {outputs.split_strategy}")
     print(f"Graph manifest: {outputs.graph_manifest_path.resolve()}")
     print(f"SMILES transformer manifest: {outputs.transformer_manifest_path.resolve()}")
+    print(f"Pairwise manifest: {outputs.pairwise_manifest_path.resolve()} ({outputs.pairwise_pairs} pairs)")
+    print(f"Inverse manifest: {outputs.inverse_manifest_path.resolve()}")
     print(f"Report: {outputs.report_path.resolve()}")
     return 0
 

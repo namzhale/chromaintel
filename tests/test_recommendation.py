@@ -53,6 +53,17 @@ class MetadataRichStubForwardModel:
         }
 
 
+class StubInverseRanker:
+    label_source = "synthetic_proxy"
+
+    def score_candidate(self, compound, method, prediction, target_rt_min, constraints):
+        return {
+            "score": 0.91 if "BEH C18" in method.column else 0.22,
+            "label_source": self.label_source,
+            "model_name": "stub_inverse_ranker",
+        }
+
+
 def test_recommendations_rank_rt_fit_quality_and_runtime():
     search_space = CandidateSearchSpace(
         columns=["BEH C18 50x2.1 mm 1.7um", "HILIC 100x2.1 mm 2.6um"],
@@ -183,6 +194,36 @@ def test_recommendations_attach_nearest_known_method_hooks_without_changing_rank
     assert recs[0].nearest_known_methods[0]["source"] == "internal_validation"
     assert 0 < recs[0].nearest_known_methods[0]["similarity"] <= 1.0
     assert "nearest_known_method_available" in recs[0].reason_codes
+
+
+def test_recommendations_expose_optional_inverse_model_score():
+    search_space = CandidateSearchSpace(
+        columns=["BEH C18 50x2.1 mm 1.7um", "HILIC 100x2.1 mm 2.6um"],
+        ph_values=[3.2],
+        flow_rates_ml_min=[0.35],
+        temperatures_c=[40.0],
+        solvents_a=["Water + 0.1% formic acid"],
+        solvents_b=["Acetonitrile + 0.1% formic acid"],
+        gradient_end_times=[5.0],
+    )
+    engine = RecommendationEngine(
+        MetadataRichStubForwardModel(),
+        search_space=search_space,
+        inverse_ranker=StubInverseRanker(),
+    )
+
+    recs = engine.recommend(
+        compound={"smiles": "CCO", "name": "ethanol"},
+        target_rt_min=4.0,
+        top_n=2,
+        ms_settings=MSSettingsInput(ionization_mode="positive"),
+    )
+
+    assert recs[0].inverse_model_enabled is True
+    assert recs[0].inverse_model_score == 0.91
+    assert recs[0].inverse_model_label_source == "synthetic_proxy"
+    assert "inverse_model:stub_inverse_ranker" in recs[0].reason_codes
+
 
 
 def test_search_space_loads_from_checked_in_config_and_applies_bounds():
