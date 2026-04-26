@@ -82,7 +82,7 @@ Generate a compact PDF dashboard for presentation or review:
 python scripts/generate_dashboard_pdf.py
 ```
 
-This writes `reports/chromaintel_dashboard_report.pdf` with dataset size, model comparison, source-wise errors, parameter significance, and the next roadmap.
+This writes a Russian presentation-style dashboard at `reports/chromaintel_dashboard_report.pdf` with dataset size, model comparison, GroupKFold metrics, source/method/column-family holdouts, source-wise errors, parameter significance, applicability-domain notes, and the next roadmap.
 
 Run the GUI:
 

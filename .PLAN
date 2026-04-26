@@ -64,12 +64,12 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 
 Next high-value slice:
 
-1. Wire method/column-family holdout metrics into the Russian PDF dashboard.
-2. Run optional Morgan comparison artifact if CPU time is acceptable.
-3. Add GUI/API release polish: local-public import preview, source metrics, AD flags, and uncertainty interval views.
-4. Smoke-test Streamlit and FastAPI locally.
-5. Run full tests, training, commit, push.
+1. Run optional Morgan comparison artifact if CPU time is acceptable.
+2. Add GUI/API release polish: local-public import preview, source metrics, AD flags, and uncertainty interval views.
+3. Smoke-test Streamlit and FastAPI locally.
+4. Run full tests, training, commit, push.
 
 Recently completed continuation slices:
 
 - Added an artifact policy and local artifact manifest for the 213,941-row dataset and 188 MB trained bundle.
+- Rebuilt the Russian PDF dashboard with source/method/column-family holdout metrics, feature importance, AD notes, and roadmap.
