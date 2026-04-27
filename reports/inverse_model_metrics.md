@@ -1,6 +1,6 @@
 # Inverse Recommendation Model Metrics
 
-- Training rows: 10000
+- Training rows: 641823
 - Label source: `synthetic_proxy`
 - Best model: `logistic_regression`
 
@@ -8,12 +8,12 @@
 
 | model | roc_auc | pr_auc | accuracy | balanced_accuracy | brier_score | n_test | label_source |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| logistic_regression | 1.0 | 1.0 | 1.0 | 1.0 | 0.0 | 2294 | synthetic_proxy |
-| random_forest | 1.0 | 1.0 | 1.0 | 1.0 | 0.0 | 2294 | synthetic_proxy |
-| extra_trees | 1.0 | 1.0 | 1.0 | 1.0 | 0.0 | 2294 | synthetic_proxy |
-| hist_gradient_boosting | 1.0 | 1.0 | 1.0 | 1.0 | 0.0 | 2294 | synthetic_proxy |
-| xgboost | 1.0 | 1.0 | 1.0 | 1.0 | 0.002 | 2294 | synthetic_proxy |
-| catboost | 1.0 | 1.0 | 1.0 | 1.0 | 0.0 | 2294 | synthetic_proxy |
+| logistic_regression | 1.0 | 1.0 | 1.0 | 1.0 | 0.0 | 163809 | synthetic_proxy |
+| random_forest | 1.0 | 1.0 | 1.0 | 1.0 | 0.0 | 163809 | synthetic_proxy |
+| extra_trees | 1.0 | 1.0 | 1.0 | 1.0 | 0.0 | 163809 | synthetic_proxy |
+| hist_gradient_boosting | 1.0 | 1.0 | 1.0 | 1.0 | 0.0 | 163809 | synthetic_proxy |
+| xgboost | 1.0 | 1.0 | 1.0 | 1.0 | 0.0 | 163809 | synthetic_proxy |
+| catboost | 1.0 | 1.0 | 1.0 | 1.0 | 0.0 | 163809 | synthetic_proxy |
 
 ## Top-k Suitability Proxy
 

@@ -1,7 +1,7 @@
 model,roc_auc,pr_auc,accuracy,balanced_accuracy,brier_score,n_test,label_source
-logistic_regression,1.0,1.0,1.0,1.0,1.4003703647468795e-07,2294,synthetic_proxy
-random_forest,1.0,1.0,1.0,1.0,1.9071490845684403e-06,2294,synthetic_proxy
-extra_trees,1.0,1.0,1.0,1.0,2.724498692240628e-07,2294,synthetic_proxy
-hist_gradient_boosting,1.0,1.0,1.0,1.0,7.81415047093677e-05,2294,synthetic_proxy
-xgboost,1.0,1.0,1.0,1.0,0.001974052107365183,2294,synthetic_proxy
-catboost,1.0,1.0,1.0,1.0,4.1150097475540747e-07,2294,synthetic_proxy
+logistic_regression,1.0,1.0,1.0,1.0,2.107442386509739e-08,163809,synthetic_proxy
+random_forest,1.0,1.0,1.0,1.0,8.902644746829121e-09,163809,synthetic_proxy
+extra_trees,1.0,1.0,1.0,1.0,8.478709282694382e-10,163809,synthetic_proxy
+hist_gradient_boosting,1.0,1.0,1.0,1.0,7.666917060095392e-12,163809,synthetic_proxy
+xgboost,1.0,1.0,1.0,1.0,2.4617702955737543e-08,163809,synthetic_proxy
+catboost,1.0,1.0,1.0,1.0,1.7747235524231655e-08,163809,synthetic_proxy

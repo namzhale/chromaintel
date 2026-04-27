@@ -52,7 +52,7 @@ def _ensure_model_matrix(matrix_path: Path) -> tuple[Path, pd.DataFrame]:
             f"{outputs.model_matrix_path.resolve()} "
             f"({outputs.model_matrix_rows} rows x {outputs.model_matrix_columns} columns)"
         )
-    return matrix_path, pd.read_csv(matrix_path)
+    return matrix_path, pd.read_csv(matrix_path, low_memory=False)
 
 
 def _parser() -> argparse.ArgumentParser:
