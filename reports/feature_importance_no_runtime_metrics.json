@@ -1,0 +1,16 @@
+{
+  "ablation": "without_both",
+  "n_train": 16215,
+  "n_test": 3785,
+  "n_features": 71,
+  "uses_gradient_duration_min": false,
+  "uses_total_runtime_min": false,
+  "mae": 1.6565811953141885,
+  "rmse": 2.918303481125454,
+  "r2": 0.8991795957479226,
+  "spearman": 0.9348004746613487,
+  "normalized_mae_runtime_pct": 6.237002873775253,
+  "sample_rows": 20000,
+  "split_group_column": "inchikey",
+  "train_test_group_overlap": 0
+}

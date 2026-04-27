@@ -10,11 +10,13 @@ import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.impute import SimpleImputer
+from sklearn.inspection import permutation_importance
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
+from app.models.training import _annotate_importance
 from app.services.feature_engineering import feature_groups
 
 
@@ -109,6 +111,65 @@ def run_runtime_ablation_study(
     return metrics, diagnostics
 
 
+def run_no_runtime_feature_importance(
+    model_matrix: pd.DataFrame,
+    config: RuntimeAblationConfig | None = None,
+    n_repeats: int = 3,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Train the no-runtime-proxy RT model and return permutation feature importance."""
+
+    cfg = config or RuntimeAblationConfig()
+    usable = model_matrix.dropna(subset=["rt_min"]).copy().replace({pd.NA: np.nan})
+    if len(usable) < 20:
+        raise ValueError("At least 20 rows with rt_min are required for feature importance")
+    sampled = _sample_for_ablation(usable, cfg.sample_rows, cfg.random_state)
+    groups = feature_groups(sampled)
+    features = build_runtime_ablation_sets(groups.combined)["without_both"]
+    categorical = [feature for feature in groups.lc_categorical + ["ion_mode"] if feature in features]
+    numeric = [feature for feature in features if feature not in categorical]
+
+    group_labels = _group_labels(sampled)
+    splitter = GroupShuffleSplit(n_splits=1, test_size=cfg.test_size, random_state=cfg.random_state)
+    train_idx, test_idx = next(splitter.split(sampled, groups=group_labels))
+    train = sampled.iloc[train_idx].copy()
+    test = sampled.iloc[test_idx].copy()
+    model = _model(categorical, numeric, cfg.n_estimators, cfg.random_state)
+    model.fit(train[features], train["rt_min"])
+    pred = model.predict(test[features])
+    result = permutation_importance(
+        model,
+        test[features],
+        test["rt_min"],
+        n_repeats=n_repeats,
+        random_state=cfg.random_state,
+        scoring="neg_mean_absolute_error",
+    )
+    importance = pd.DataFrame(
+        {
+            "feature": features,
+            "importance_mean": result.importances_mean,
+            "importance_std": result.importances_std,
+        }
+    ).sort_values("importance_mean", ascending=False).reset_index(drop=True)
+    metrics = {
+        "ablation": "without_both",
+        "n_train": int(len(train)),
+        "n_test": int(len(test)),
+        "n_features": int(len(features)),
+        "uses_gradient_duration_min": False,
+        "uses_total_runtime_min": False,
+        "mae": float(mean_absolute_error(test["rt_min"], pred)),
+        "rmse": float(mean_squared_error(test["rt_min"], pred) ** 0.5),
+        "r2": _safe_r2(test["rt_min"], pred),
+        "spearman": _safe_spearman(test["rt_min"], pred),
+        "normalized_mae_runtime_pct": _normalized_mae_runtime_pct(test, pred),
+        "sample_rows": int(len(sampled)),
+        "split_group_column": _group_column(sampled),
+        "train_test_group_overlap": int(len(set(_group_labels(train)) & set(_group_labels(test)))),
+    }
+    return _annotate_importance(importance), metrics
+
+
 def runtime_consequence_diagnostics(frame: pd.DataFrame) -> dict[str, Any]:
     """Measure whether runtime looks like an independent method setting or a target-derived margin."""
 
@@ -156,6 +217,58 @@ def write_runtime_ablation_outputs(
         "diagnostics": str(diagnostics_path),
         "report": str(report_path),
     }
+
+
+def write_no_runtime_feature_importance_outputs(
+    importance: pd.DataFrame,
+    metrics: dict[str, Any],
+    report_dir: str | Path = "reports",
+) -> dict[str, str]:
+    """Write no-runtime feature importance outputs."""
+
+    out = Path(report_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    importance_path = out / "feature_importance_no_runtime.csv"
+    metrics_path = out / "feature_importance_no_runtime_metrics.json"
+    report_path = out / "feature_importance_no_runtime.md"
+    importance.to_csv(importance_path, index=False)
+    metrics_path.write_text(json.dumps(metrics, indent=2, ensure_ascii=False), encoding="utf-8")
+    report_path.write_text(_no_runtime_importance_markdown(importance, metrics), encoding="utf-8")
+    return {
+        "importance": str(importance_path),
+        "metrics": str(metrics_path),
+        "report": str(report_path),
+    }
+
+
+def _no_runtime_importance_markdown(importance: pd.DataFrame, metrics: dict[str, Any]) -> str:
+    top = importance.head(25).round(4)
+    table = _markdown_table(top)
+    return f"""# Feature Importance Without Runtime Proxy Features
+
+This report recalculates RT permutation feature importance after excluding `gradient_duration_min` and `total_runtime_min`. The model still keeps LC composition, organic percentages, gradient slope, column/mobile-phase categories, MS mode, and molecular descriptors.
+
+## Model Metrics
+
+- Ablation mode: `{metrics.get('ablation')}`
+- Sample rows: {metrics.get('sample_rows')}
+- Train/test rows: {metrics.get('n_train')} / {metrics.get('n_test')}
+- Split group column: `{metrics.get('split_group_column')}`
+- Train/test group overlap: {metrics.get('train_test_group_overlap')}
+- Features used: {metrics.get('n_features')}
+- MAE: {_fmt(metrics.get('mae'))} min
+- RMSE: {_fmt(metrics.get('rmse'))} min
+- R2: {_fmt(metrics.get('r2'))}
+- Spearman: {_fmt(metrics.get('spearman'))}
+
+## Top Features
+
+{table}
+
+## Interpretation
+
+After removing direct duration/runtime features, the model should be interpreted through remaining controllable LC conditions and chemistry: organic start/end percentage, gradient slope, column/mobile phase categories, hydrophobicity/logD, surface area, ionization proxies, flow, temperature, and MS polarity. This is the safer feature-importance view for transfer claims and inverse recommendation.
+"""
 
 
 def _runtime_ablation_markdown(metrics: pd.DataFrame, diagnostics: dict[str, Any]) -> str:
