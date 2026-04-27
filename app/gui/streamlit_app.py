@@ -30,8 +30,12 @@ MASTER_DATASET_PATH = PROCESSED_DIR / "master_dataset.csv"
 MODEL_MATRIX_PATH = PROCESSED_DIR / "model_matrix.csv"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 FEATURE_IMPORTANCE_PATH = REPORTS_DIR / "feature_importance.csv"
+NO_RUNTIME_FEATURE_IMPORTANCE_PATH = REPORTS_DIR / "feature_importance_no_runtime.csv"
 TEST_PREDICTIONS_PATH = REPORTS_DIR / "test_predictions.csv"
 SOURCE_METRICS_PATH = REPORTS_DIR / "source_metrics.csv"
+EVALUATION_MATRIX_PATH = REPORTS_DIR / "evaluation_matrix.csv"
+RUNTIME_ABLATION_PATH = REPORTS_DIR / "runtime_ablation_metrics.csv"
+RUNTIME_ABLATION_PDF_PATH = REPORTS_DIR / "runtime_leakage_ablation_report.pdf"
 TARGET_COVERAGE_PATH = REPORTS_DIR / "target_coverage_matrix.csv"
 INVERSE_METRICS_PATH = REPORTS_DIR / "inverse_model_metrics.csv"
 INVERSE_TOPK_PATH = REPORTS_DIR / "inverse_topk_evaluation.csv"
@@ -221,6 +225,114 @@ def _render_training_artifacts() -> None:
         if inverse_topk is not None and not inverse_topk.empty:
             st.dataframe(inverse_topk.round(4), use_container_width=True, hide_index=True)
         st.caption("Inverse recommendation labels are currently synthetic/proxy labels derived from observed method suitability; internal accepted/failed assays are required for production-grade inverse validation.")
+
+
+def _render_model_evaluation_artifacts() -> None:
+    evaluation = _read_csv(EVALUATION_MATRIX_PATH)
+    predictions = _read_csv(TEST_PREDICTIONS_PATH)
+    source_metrics = _read_csv(SOURCE_METRICS_PATH)
+    importance = _read_csv(FEATURE_IMPORTANCE_PATH)
+    no_runtime_importance = _read_csv(NO_RUNTIME_FEATURE_IMPORTANCE_PATH)
+    runtime_ablation = _read_csv(RUNTIME_ABLATION_PATH)
+
+    if evaluation is not None and not evaluation.empty:
+        st.subheader("Validation matrix")
+        rt_eval = evaluation[evaluation["target"].eq("rt_min")].copy() if "target" in evaluation else evaluation.copy()
+        display_cols = [
+            col
+            for col in [
+                "validation_scope",
+                "holdout_key",
+                "model",
+                "n_rows",
+                "mae",
+                "rmse",
+                "r2",
+                "spearman",
+                "normalized_mae_runtime_pct",
+            ]
+            if col in rt_eval
+        ]
+        st.dataframe(rt_eval[display_cols].round(3), use_container_width=True, hide_index=True)
+        if {"validation_scope", "model", "mae"}.issubset(rt_eval.columns):
+            st.plotly_chart(
+                px.bar(
+                    rt_eval.sort_values("mae").head(40),
+                    x="mae",
+                    y="model",
+                    color="validation_scope",
+                    orientation="h",
+                    title="RT MAE across validation scopes",
+                    hover_data=[col for col in ["holdout_key", "rmse", "r2", "spearman"] if col in rt_eval],
+                ),
+                use_container_width=True,
+            )
+
+    if predictions is not None and not predictions.empty:
+        st.subheader("Applicability domain flags")
+        if "ad_flag" in predictions:
+            ad_count = int(predictions["ad_flag"].sum())
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Held-out rows", len(predictions))
+            c2.metric("AD flagged rows", ad_count)
+            c3.metric("AD flagged share", f"{ad_count / max(len(predictions), 1) * 100:.1f}%")
+            if "ad_reason" in predictions:
+                reasons = predictions["ad_reason"].value_counts(dropna=False).reset_index()
+                reasons.columns = ["ad_reason", "rows"]
+                st.dataframe(reasons.head(20), use_container_width=True, hide_index=True)
+        if {"uncertainty_rt_min", "abs_rt_error_min"}.issubset(predictions.columns):
+            st.plotly_chart(
+                px.scatter(
+                    predictions,
+                    x="uncertainty_rt_min",
+                    y="abs_rt_error_min",
+                    color="source_dataset" if "source_dataset" in predictions else None,
+                    title="RT error vs uncertainty proxy",
+                ),
+                use_container_width=True,
+            )
+
+    if source_metrics is not None and not source_metrics.empty:
+        st.subheader("Source-wise transfer diagnostics")
+        st.plotly_chart(
+            px.bar(
+                source_metrics.sort_values("rt_mae", ascending=False).head(30),
+                x="rt_mae",
+                y="source_dataset",
+                orientation="h",
+                title="Worst source-wise RT MAE",
+            ),
+            use_container_width=True,
+        )
+
+    if importance is not None and not importance.empty:
+        st.subheader("Feature significance")
+        st.dataframe(
+            importance[[col for col in ["feature", "feature_group", "importance_mean", "importance_std", "significance"] if col in importance]].head(30).round(4),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    if no_runtime_importance is not None and not no_runtime_importance.empty:
+        st.subheader("No-runtime feature significance")
+        st.caption("This excludes `gradient_duration_min` and `total_runtime_min` to reduce runtime-proxy leakage.")
+        st.plotly_chart(
+            px.bar(
+                no_runtime_importance.head(25),
+                x="importance_mean",
+                y="feature",
+                color="feature_group" if "feature_group" in no_runtime_importance else None,
+                orientation="h",
+                title="RT permutation importance without duration/runtime features",
+            ),
+            use_container_width=True,
+        )
+
+    if runtime_ablation is not None and not runtime_ablation.empty:
+        st.subheader("Runtime proxy ablation")
+        st.dataframe(runtime_ablation.round(4), use_container_width=True, hide_index=True)
+        if RUNTIME_ABLATION_PDF_PATH.exists():
+            st.caption(f"PDF report: {RUNTIME_ABLATION_PDF_PATH}")
 
 
 def _issue_frame(issues: list[Any]) -> pd.DataFrame:
@@ -638,6 +750,8 @@ def model_evaluation() -> None:
         px.histogram(records, x="retention_time_min", color="dataset_source", nbins=12),
         use_container_width=True,
     )
+    st.divider()
+    _render_model_evaluation_artifacts()
 
 
 def admin_import() -> None:
