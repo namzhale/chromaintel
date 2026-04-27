@@ -1,0 +1,20 @@
+{
+  "rt_total_runtime_pearson": 0.6451029236062276,
+  "rt_total_runtime_spearman": 0.47751111693886006,
+  "rt_gradient_duration_pearson": 0.6833893138047281,
+  "rt_gradient_duration_spearman": 0.601054015027354,
+  "post_peak_margin_median_min": 11.5,
+  "post_peak_margin_q10_min": 2.66,
+  "post_peak_margin_q90_min": 29.26130000000003,
+  "rt_runtime_fraction_median": 0.4842067124332571,
+  "rt_runtime_fraction_q90": 0.7160014492753624,
+  "target_like_runtime_margin_fraction": 0.05625,
+  "method_group_count": 139,
+  "within_method_variable_runtime_group_fraction": 0.03597122302158273,
+  "within_method_rt_runtime_spearman_median": 0.22169661391882564,
+  "sample_rows": 20000,
+  "split_group_column": "inchikey",
+  "train_rows": 16215,
+  "test_rows": 3785,
+  "train_test_group_overlap": 0
+}
