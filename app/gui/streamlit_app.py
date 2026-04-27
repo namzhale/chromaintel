@@ -74,6 +74,14 @@ def _optional_import_internal_validation():
     return preview_internal_lab_import, validate_internal_lab_frame, write_internal_templates, None
 
 
+def _optional_import_public_preview():
+    try:
+        from app.services.public_import_preview import discover_processed_imports, preview_processed_import
+    except Exception as exc:
+        return None, None, exc
+    return discover_processed_imports, preview_processed_import, None
+
+
 def _read_csv(path: Path) -> pd.DataFrame | None:
     if not path.exists():
         return None
@@ -529,6 +537,58 @@ def dataset_assembly_page() -> None:
             "No processed master dataset yet. Build it from the mock source here, "
             "or run scripts/assemble_dataset.py from the project root."
         )
+
+    st.divider()
+    st.subheader("Processed public/literature import preview")
+    discover_processed_imports, preview_processed_import, preview_error = _optional_import_public_preview()
+    if preview_error:
+        st.warning(f"Processed import preview is unavailable: {preview_error}")
+    else:
+        import_files = discover_processed_imports(PROCESSED_DIR)
+        if not import_files:
+            st.info("No processed external/literature CSVs found yet.")
+        else:
+            selected = st.selectbox(
+                "Processed import file",
+                import_files,
+                format_func=lambda path: f"{path.name} ({path.stat().st_size / 1024 / 1024:.1f} MB)",
+            )
+            try:
+                preview = preview_processed_import(selected)
+            except Exception as exc:
+                st.error(f"Could not preview {selected}: {exc}")
+            else:
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Rows", preview.row_count)
+                c2.metric("Columns", preview.column_count)
+                c3.metric("Sources", len(preview.source_counts) if preview.source_counts else "n/a")
+                if preview.source_counts:
+                    source_frame = pd.DataFrame(
+                        [{"source": source, "rows": rows} for source, rows in preview.source_counts.items()]
+                    )
+                    st.plotly_chart(
+                        px.bar(source_frame.head(25), x="source", y="rows", title="Source distribution"),
+                        use_container_width=True,
+                    )
+                if preview.canonical_coverage:
+                    coverage_frame = pd.DataFrame(
+                        [
+                            {"field": field, "coverage_percent": coverage * 100.0}
+                            for field, coverage in preview.canonical_coverage.items()
+                        ]
+                    ).sort_values("coverage_percent")
+                    st.plotly_chart(
+                        px.bar(
+                            coverage_frame,
+                            x="coverage_percent",
+                            y="field",
+                            orientation="h",
+                            title="Canonical field coverage",
+                        ),
+                        use_container_width=True,
+                    )
+                st.dataframe(pd.DataFrame(preview.missingness).head(30), use_container_width=True, hide_index=True)
+                st.dataframe(preview.example_rows, use_container_width=True, hide_index=True)
 
 
 def training_page() -> None:

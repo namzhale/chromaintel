@@ -49,8 +49,8 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 
 ## Milestone E: GUI/API Release Polish
 
-- [ ] Add GUI import preview for literature-extracted and local-public processed CSVs.
-- [ ] Add Model Evaluation page views for source metrics, feature significance, AD flags, and uncertainty interval.
+- [x] Add GUI import preview for literature-extracted and local-public processed CSVs.
+- [x] Add Model Evaluation page views for source metrics, feature significance, AD flags, and uncertainty interval.
 - [x] Add Training/Model Evaluation views for direct target readiness and inverse recommendation ML proxy metrics.
 - [x] Add API tests for prediction, recommendation, and dataset browser endpoints.
 - [ ] Smoke-test Streamlit and FastAPI locally.
@@ -75,6 +75,8 @@ Next high-value slice:
 
 Recently completed continuation slices:
 
+- Added Streamlit Model Evaluation panels for validation matrix, source-wise errors, AD flags, no-runtime feature importance, and runtime ablation outputs.
+- Added Streamlit processed import preview for local public/literature CSVs with source counts, canonical coverage, missingness, and example rows.
 - Added an artifact policy and local artifact manifest for the 213,941-row dataset and 188 MB trained bundle.
 - Rebuilt the Russian PDF dashboard with source/method/column-family holdout metrics, feature importance, AD notes, and roadmap.
 - Added direct-target readiness reporting, DL preparation manifests for pairwise/inverse tasks, proxy-trained inverse recommendation ML baselines, and dashboard/README integration.

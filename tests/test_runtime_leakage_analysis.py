@@ -79,7 +79,7 @@ def test_no_runtime_feature_importance_excludes_duration_proxy_features():
 
     importance, metrics = run_no_runtime_feature_importance(
         frame,
-        RuntimeAblationConfig(sample_rows=30, n_estimators=5),
+        RuntimeAblationConfig(sample_rows=30, n_estimators=5, n_jobs=1),
         n_repeats=1,
     )
 

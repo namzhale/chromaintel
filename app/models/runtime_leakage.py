@@ -39,6 +39,7 @@ class RuntimeAblationConfig:
     sample_rows: int = 20000
     random_state: int = 42
     n_estimators: int = 120
+    n_jobs: int = -1
     test_size: float = 0.2
 
 
@@ -78,7 +79,7 @@ def run_runtime_ablation_study(
     for ablation_name, features in ablation_sets.items():
         categorical = [feature for feature in groups.lc_categorical + ["ion_mode"] if feature in features]
         numeric = [feature for feature in features if feature not in categorical]
-        model = _model(categorical, numeric, cfg.n_estimators, cfg.random_state)
+        model = _model(categorical, numeric, cfg.n_estimators, cfg.random_state, cfg.n_jobs)
         model.fit(train[features], train["rt_min"])
         pred = model.predict(test[features])
         rows.append(
@@ -133,7 +134,7 @@ def run_no_runtime_feature_importance(
     train_idx, test_idx = next(splitter.split(sampled, groups=group_labels))
     train = sampled.iloc[train_idx].copy()
     test = sampled.iloc[test_idx].copy()
-    model = _model(categorical, numeric, cfg.n_estimators, cfg.random_state)
+    model = _model(categorical, numeric, cfg.n_estimators, cfg.random_state, cfg.n_jobs)
     model.fit(train[features], train["rt_min"])
     pred = model.predict(test[features])
     result = permutation_importance(
@@ -353,7 +354,7 @@ def _sample_for_ablation(frame: pd.DataFrame, sample_rows: int, random_state: in
     return sampled.reset_index(drop=True)
 
 
-def _model(categorical: list[str], numeric: list[str], n_estimators: int, random_state: int) -> Pipeline:
+def _model(categorical: list[str], numeric: list[str], n_estimators: int, random_state: int, n_jobs: int) -> Pipeline:
     preprocessor = ColumnTransformer(
         transformers=[
             (
@@ -378,7 +379,7 @@ def _model(categorical: list[str], numeric: list[str], n_estimators: int, random
                 ExtraTreesRegressor(
                     n_estimators=n_estimators,
                     random_state=random_state,
-                    n_jobs=-1,
+                    n_jobs=n_jobs,
                     min_samples_leaf=2,
                 ),
             ),
