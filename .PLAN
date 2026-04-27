@@ -52,7 +52,7 @@ This file is the autonomous backlog. Work top-down. Mark an item done only after
 - [ ] Add GUI import preview for literature-extracted and local-public processed CSVs.
 - [ ] Add Model Evaluation page views for source metrics, feature significance, AD flags, and uncertainty interval.
 - [x] Add Training/Model Evaluation views for direct target readiness and inverse recommendation ML proxy metrics.
-- [ ] Add API tests for prediction, recommendation, and dataset browser endpoints.
+- [x] Add API tests for prediction, recommendation, and dataset browser endpoints.
 - [ ] Smoke-test Streamlit and FastAPI locally.
 - [ ] Add screenshots or placeholder screenshots only after GUI smoke passes.
 
@@ -78,3 +78,4 @@ Recently completed continuation slices:
 - Added an artifact policy and local artifact manifest for the 213,941-row dataset and 188 MB trained bundle.
 - Rebuilt the Russian PDF dashboard with source/method/column-family holdout metrics, feature importance, AD notes, and roadmap.
 - Added direct-target readiness reporting, DL preparation manifests for pairwise/inverse tasks, proxy-trained inverse recommendation ML baselines, and dashboard/README integration.
+- Added endpoint-level API tests for health, prediction, recommendation, and dataset browser behavior with mocked DB persistence.
