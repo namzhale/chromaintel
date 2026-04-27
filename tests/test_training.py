@@ -5,6 +5,7 @@ import pandas as pd
 
 from app.models.training import (
     _candidate_models,
+    _feature_group,
     _group_kfold_scores,
     _grouped_train_validation_test_split,
     _groups_for_split,
@@ -74,6 +75,12 @@ def test_candidate_models_include_cpu_practical_extra_trees():
     assert "extra_trees" in models
     assert "xgboost" in models
     assert "catboost" in models
+
+
+def test_extended_descriptor_importance_features_are_grouped_as_compound_descriptors():
+    assert _feature_group("estimated_logd_ph7") == "compound_descriptor"
+    assert _feature_group("labute_asa") == "compound_descriptor"
+    assert _feature_group("gasteiger_dipole_moment_proxy") == "compound_descriptor"
 
 
 def test_train_forward_models_exports_sota_metadata_and_feature_importance(tmp_path):

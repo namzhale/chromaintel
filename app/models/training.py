@@ -20,7 +20,7 @@ from sklearn.model_selection import GroupKFold, GroupShuffleSplit
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from app.services.feature_engineering import feature_groups
+from app.services.feature_engineering import COMPOUND_FEATURES, feature_groups
 
 
 @dataclass(frozen=True)
@@ -1279,18 +1279,7 @@ def _annotate_importance(importance: pd.DataFrame) -> pd.DataFrame:
 
 
 def _feature_group(feature: str) -> str:
-    descriptor_features = {
-        "molecular_weight",
-        "logp",
-        "tpsa",
-        "hbond_donors",
-        "hbond_acceptors",
-        "rotatable_bonds",
-        "aromatic_ring_count",
-        "formal_charge",
-        "heavy_atom_count",
-        "fraction_csp3",
-    }
+    descriptor_features = set(COMPOUND_FEATURES)
     lc_numeric = {
         "ph",
         "temperature_c",

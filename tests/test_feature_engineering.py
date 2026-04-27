@@ -37,6 +37,9 @@ def test_build_model_matrix_creates_feature_groups_and_proxy_quality():
 
     assert matrix.loc[0, "molecular_weight"] > 190
     assert matrix.loc[0, "fraction_csp3"] >= 0
+    assert matrix.loc[0, "labute_asa"] > 0
+    assert matrix.loc[0, "gasteiger_abs_charge_mean"] >= 0
+    assert matrix.loc[0, "estimated_net_charge_ph7"] <= 1
     assert matrix.loc[0, "quality_score"] > 0.8
     assert matrix.loc[0, "gradient_slope_percent_b_min"] == 18
 
@@ -83,3 +86,33 @@ def test_build_model_matrix_can_include_morgan_fingerprints():
     assert "morgan_0" in matrix.columns
     assert len(groups.fingerprints) == 2048
     assert groups.combined.index("morgan_0") > groups.combined.index("fraction_csp3")
+
+
+def test_extended_descriptors_are_in_compound_feature_group():
+    master = pd.DataFrame(
+        [
+            {
+                "compound_name": "Aspirin",
+                "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+                "column_chemistry": "C18",
+                "mobile_phase_a": "Water",
+                "mobile_phase_b": "Acetonitrile",
+                "rt_min": 3.2,
+            }
+        ]
+    )
+
+    matrix = build_model_matrix(master)
+    groups = feature_groups(matrix)
+
+    expected = {
+        "exact_mol_wt",
+        "labute_asa",
+        "slogp_vsa_hydrophobic",
+        "carboxylic_acid_count",
+        "strongest_acid_pka_proxy",
+        "estimated_net_charge_ph7",
+        "gasteiger_dipole_moment_proxy",
+    }
+    assert expected.issubset(matrix.columns)
+    assert expected.issubset(set(groups.compound))
